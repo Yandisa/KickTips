@@ -1,0 +1,282 @@
+{% extends 'website/base.html' %}
+{% block title %}{{ fixture.home_team }} vs {{ fixture.away_team }} — KickTips{% endblock %}
+
+{% block content %}
+
+<!-- BACK -->
+<div style="margin-bottom:24px;">
+  <a href="{% url 'matches' %}" style="font-family:var(--mono); font-size:11px; letter-spacing:0.06em;
+     color:var(--muted); text-transform:uppercase; transition:color 0.15s;"
+     onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
+    &larr; Matches
+  </a>
+</div>
+
+<!-- MATCH HEADER -->
+<div style="padding-bottom:28px; border-bottom:1px solid var(--border); margin-bottom:36px;">
+  <div class="page-eyebrow">
+    {{ fixture.league.country }} &middot; {{ fixture.league.name }} &middot; {{ fixture.kickoff|date:"D j M Y, H:i" }}
+    {% if fixture.referee %}&ensp;&middot;&ensp;Ref: {{ fixture.referee.name }}{% endif %}
+  </div>
+
+  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top:10px;">
+    <h1 style="font-family:var(--serif); font-size:clamp(1.4rem,4vw,2.2rem); line-height:1.15; letter-spacing:-0.02em; color:var(--text);">
+      {% if fixture.status == 'finished' %}
+        {{ fixture.home_team.name }}
+        <span style="color:var(--accent); margin:0 10px;">{{ fixture.home_score }}–{{ fixture.away_score }}</span>
+        {{ fixture.away_team.name }}
+      {% else %}
+        {{ fixture.home_team.name }}
+        <span style="color:var(--dim); font-style:italic; font-size:0.6em; margin:0 10px;">vs</span>
+        {{ fixture.away_team.name }}
+      {% endif %}
+    </h1>
+    <span class="result-pill {% if fixture.status == 'finished' %}void{% elif fixture.status == 'live' %}won{% else %}pending{% endif %}">
+      {{ fixture.get_status_display }}
+    </span>
+  </div>
+
+  {% if fixture.status == 'finished' and fixture.total_corners is not None %}
+    <div style="margin-top:12px; font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:0.04em;">
+      Corners: {{ fixture.total_corners }}
+      {% if fixture.total_cards is not None %}&ensp;&middot;&ensp;Cards: {{ fixture.total_cards }}{% endif %}
+    </div>
+  {% endif %}
+</div>
+
+<!-- PUBLISHED PREDICTIONS -->
+{% if published %}
+  <div style="margin-bottom:44px;">
+    <div class="section-label">
+      Our predictions &mdash; {{ published|length }} market{{ published|length|pluralize }}
+    </div>
+
+    {% for pred in published %}
+      <div class="pred-block">
+        <div style="display:grid; grid-template-columns:1fr auto; gap:20px; align-items:start;">
+          <div>
+            <div class="pred-market">
+              {% if pred.market == "ou_goals" %}Over / Under Goals
+              {% elif pred.market == "dc" %}Double Chance
+              {% elif pred.market == "btts" %}Both Teams to Score
+              {% elif pred.market == "corners" %}Corners
+              {% elif pred.market == "1x2" %}Match Result
+              {% else %}{{ pred.market }}{% endif %}
+            </div>
+            <div class="pred-tip">{{ pred.tip }}</div>
+            {% if pred.reasoning %}
+              <p class="pred-reasoning">{{ pred.reasoning }}</p>
+            {% endif %}
+          </div>
+          <div style="text-align:right; flex-shrink:0; min-width:72px;">
+            <div style="font-family:var(--serif); font-size:2rem; line-height:1; letter-spacing:-0.02em; color:var(--accent);">
+              {{ pred.confidence|floatformat:0 }}<span style="font-size:1rem; color:var(--muted);">%</span>
+            </div>
+            <div style="font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; margin-top:2px;">confidence</div>
+            <div class="conf-track" style="width:72px; margin:10px 0 10px auto;">
+              <div class="conf-fill" style="width:{{ pred.confidence|floatformat:0 }}%;"></div>
+            </div>
+            {% if pred.result == 'won' %}
+              <span class="result-pill won">Won</span>
+            {% elif pred.result == 'lost' %}
+              <span class="result-pill lost">Lost</span>
+            {% elif pred.result == 'void' %}
+              <span class="result-pill void">Void</span>
+            {% else %}
+              <span class="result-pill pending">Pending</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<!-- TEAM HISTORY (from API) -->
+{% if home_history or away_history %}
+<div style="margin-bottom:44px;">
+  <div class="section-label">Recent form &amp; head-to-head</div>
+
+  <!-- Form strings -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:10px;">
+        {{ fixture.home_team.name }} — Last 5 home
+      </div>
+      <div style="display:flex; gap:5px; flex-wrap:wrap;">
+        {% for ch in home_form_chars %}
+          <span class="form-badge {{ ch }}">{{ ch }}</span>
+        {% empty %}
+          <span style="color:var(--dim); font-size:12px;">No data</span>
+        {% endfor %}
+      </div>
+    </div>
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:10px;">
+        {{ fixture.away_team.name }} — Last 5 away
+      </div>
+      <div style="display:flex; gap:5px; flex-wrap:wrap;">
+        {% for ch in away_form_chars %}
+          <span class="form-badge {{ ch }}">{{ ch }}</span>
+        {% empty %}
+          <span style="color:var(--dim); font-size:12px;">No data</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent results side by side -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+
+    <!-- Home team recent -->
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px;">
+        {{ fixture.home_team.name }} — Recent
+      </div>
+      {% for r in home_history %}
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); font-size:12px;">
+          <div style="color:var(--muted); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            {% if r.is_home %}
+              <span style="color:var(--text);">{{ r.home_name }}</span> vs {{ r.away_name }}
+            {% else %}
+              {{ r.home_name }} vs <span style="color:var(--text);">{{ r.away_name }}</span>
+            {% endif %}
+          </div>
+          <div class="history-score {% if r.won %}win{% elif r.draw %}draw{% else %}loss{% endif %}">
+            {{ r.home_score }}–{{ r.away_score }}
+          </div>
+        </div>
+      {% empty %}
+        <p style="font-size:12px; color:var(--dim);">No recent results available.</p>
+      {% endfor %}
+    </div>
+
+    <!-- Away team recent -->
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px;">
+        {{ fixture.away_team.name }} — Recent
+      </div>
+      {% for r in away_history %}
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); font-size:12px;">
+          <div style="color:var(--muted); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            {% if r.is_home %}
+              <span style="color:var(--text);">{{ r.home_name }}</span> vs {{ r.away_name }}
+            {% else %}
+              {{ r.home_name }} vs <span style="color:var(--text);">{{ r.away_name }}</span>
+            {% endif %}
+          </div>
+          <div class="history-score {% if r.won %}win{% elif r.draw %}draw{% else %}loss{% endif %}">
+            {{ r.home_score }}–{{ r.away_score }}
+          </div>
+        </div>
+      {% empty %}
+        <p style="font-size:12px; color:var(--dim);">No recent results available.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- H2H -->
+  {% if h2h_results %}
+  <div style="margin-top:12px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+    <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px;">
+      Head to Head — Last {{ h2h_results|length }}
+    </div>
+    <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:12px;">
+      <div style="text-align:center;">
+        <div style="font-family:var(--serif); font-size:1.6rem; color:var(--accent); line-height:1;">{{ h2h_home_wins }}</div>
+        <div style="font-family:var(--mono); font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-top:3px;">{{ fixture.home_team.name|truncatechars:10 }}</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:var(--serif); font-size:1.6rem; color:var(--warn); line-height:1;">{{ h2h_draws }}</div>
+        <div style="font-family:var(--mono); font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-top:3px;">Draws</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:var(--serif); font-size:1.6rem; color:var(--loss); line-height:1;">{{ h2h_away_wins }}</div>
+        <div style="font-family:var(--mono); font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-top:3px;">{{ fixture.away_team.name|truncatechars:10 }}</div>
+      </div>
+    </div>
+    {% for r in h2h_results %}
+      <div style="display:flex; align-items:center; justify-content:center; gap:12px; padding:6px 0; border-bottom:1px solid var(--border); font-family:var(--mono); font-size:12px;">
+        <span style="color:{% if r.winner == 'home' %}var(--win){% elif r.winner == 'away' %}var(--loss){% else %}var(--warn){% endif %};">
+          {{ r.home_score }}–{{ r.away_score }}
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- TEAM STATS -->
+<div style="margin-bottom:44px;">
+  <div class="section-label">Team statistics</div>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;">
+    <div style="padding:12px 16px; border-bottom:1px solid var(--border); border-right:1px solid var(--border);">
+      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted);">
+        {{ fixture.home_team.name }} (Home)
+      </div>
+    </div>
+    <div style="padding:12px 16px; border-bottom:1px solid var(--border);">
+      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted);">
+        {{ fixture.away_team.name }} (Away)
+      </div>
+    </div>
+
+    {% with h=fixture.home_team a=fixture.away_team %}
+    <div style="padding:14px 16px; border-bottom:1px solid var(--border); border-right:1px solid var(--border);">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Goals scored / conceded</div>
+      <div style="font-family:var(--mono); font-size:14px;">{{ h.home_avg_goals_for|floatformat:2 }}<span style="color:var(--dim);">/</span>{{ h.home_avg_goals_against|floatformat:2 }}</div>
+    </div>
+    <div style="padding:14px 16px; border-bottom:1px solid var(--border);">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Goals scored / conceded</div>
+      <div style="font-family:var(--mono); font-size:14px;">{{ a.away_avg_goals_for|floatformat:2 }}<span style="color:var(--dim);">/</span>{{ a.away_avg_goals_against|floatformat:2 }}</div>
+    </div>
+
+    <div style="padding:14px 16px; border-bottom:1px solid var(--border); border-right:1px solid var(--border);">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Corners for / against</div>
+      <div style="font-family:var(--mono); font-size:14px;">{{ h.home_avg_corners_for|floatformat:1 }}<span style="color:var(--dim);">/</span>{{ h.home_avg_corners_against|floatformat:1 }}</div>
+    </div>
+    <div style="padding:14px 16px; border-bottom:1px solid var(--border);">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Corners for / against</div>
+      <div style="font-family:var(--mono); font-size:14px;">{{ a.away_avg_corners_for|floatformat:1 }}<span style="color:var(--dim);">/</span>{{ a.away_avg_corners_against|floatformat:1 }}</div>
+    </div>
+
+    <div style="padding:14px 16px; border-bottom:1px solid var(--border); border-right:1px solid var(--border);">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Home win rate</div>
+      <div style="font-family:var(--mono); font-size:14px; color:var(--accent);">{% widthratio h.home_win_rate 1 100 %}%</div>
+    </div>
+    <div style="padding:14px 16px; border-bottom:1px solid var(--border);">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Away win rate</div>
+      <div style="font-family:var(--mono); font-size:14px; color:var(--accent);">{% widthratio a.away_win_rate 1 100 %}%</div>
+    </div>
+
+    <div style="padding:14px 16px; border-right:1px solid var(--border);">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">BTTS rate (home)</div>
+      <div style="font-family:var(--mono); font-size:14px;">{% widthratio h.home_btts_rate 1 100 %}%</div>
+    </div>
+    <div style="padding:14px 16px;">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">BTTS rate (away)</div>
+      <div style="font-family:var(--mono); font-size:14px;">{% widthratio a.away_btts_rate 1 100 %}%</div>
+    </div>
+    {% endwith %}
+  </div>
+</div>
+
+<!-- SKIPPED MARKETS -->
+{% if skipped %}
+  <div style="margin-bottom:44px;">
+    <div class="section-label">Markets skipped</div>
+    {% for pred in skipped %}
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;
+                  padding:11px 0; border-bottom:1px solid var(--border);">
+        <div style="font-size:13px; color:var(--muted);">{{ pred.get_market_display }}</div>
+        <div style="font-family:var(--mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--dim);">
+          {{ pred.get_skipped_reason_display }}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% endblock %}

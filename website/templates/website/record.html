@@ -1,0 +1,154 @@
+{% extends 'website/base.html' %}
+{% block title %}Our Record — KickTips{% endblock %}
+
+{% block content %}
+
+<!-- HEADER ───────────────────────────────────────────────── -->
+<div style="padding-bottom:36px; border-bottom:1px solid var(--border); margin-bottom:48px;">
+  <div class="page-eyebrow">Full transparency</div>
+  <h1 class="page-title">Performance record</h1>
+  <p class="page-sub">
+    Every tip we've ever published. Every result. Nothing removed, nothing adjusted.
+  </p>
+</div>
+
+<!-- ALL-TIME STATS ───────────────────────────────────────── -->
+<div class="stat-row" style="margin-bottom:52px;">
+  <div class="stat-cell">
+    <div class="val accent">{{ alltime.win_rate }}%</div>
+    <div class="lbl">All-time win rate</div>
+  </div>
+  <div class="stat-cell">
+    <div class="val">{{ alltime.total_published }}</div>
+    <div class="lbl">Tips published</div>
+  </div>
+  <div class="stat-cell">
+    <div class="val win">{{ alltime.total_won }}</div>
+    <div class="lbl">Correct</div>
+  </div>
+  <div class="stat-cell">
+    <div class="val loss">{{ alltime.total_lost }}</div>
+    <div class="lbl">Incorrect</div>
+  </div>
+</div>
+
+<!-- BY MARKET ────────────────────────────────────────────── -->
+<div style="margin-bottom:52px;">
+  <div class="section-label">By market</div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Market</th>
+        <th>Won</th>
+        <th>Total</th>
+        <th>Win rate</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for market, data in alltime.markets.items %}
+        <tr>
+          <td>{{ market }}</td>
+          <td class="win mono">{{ data.won }}</td>
+          <td class="mono">{{ data.total }}</td>
+          <td class="mono">
+            {% if data.total > 0 %}
+              {% widthratio data.won data.total 100 %}%
+            {% else %}&mdash;{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- BY CONFIDENCE BAND ───────────────────────────────────── -->
+<div style="margin-bottom:52px;">
+  <div class="section-label">
+    Confidence calibration
+    <span style="font-size:10px; font-weight:400; margin-left:8px; opacity:0.6;">
+      Higher confidence bands should win more often
+    </span>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Band</th>
+        <th>Won</th>
+        <th>Total</th>
+        <th>Win rate</th>
+        <th>Calibrated</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for band, data in alltime.bands.items %}
+        <tr>
+          <td class="mono">{{ band }}</td>
+          <td class="win mono">{{ data.won }}</td>
+          <td class="mono">{{ data.total }}</td>
+          <td class="mono">
+            {% if data.total > 0 %}
+              {% widthratio data.won data.total 100 %}%
+            {% else %}&mdash;{% endif %}
+          </td>
+          <td>
+            {% if data.total > 0 %}
+              {% widthratio data.won data.total 100 as wr %}
+              {% if wr|add:0 >= 65 %}
+                <span style="font-family:var(--mono); font-size:10px; color:var(--win);">Yes</span>
+              {% else %}
+                <span style="font-family:var(--mono); font-size:10px; color:var(--warn);">Needs tuning</span>
+              {% endif %}
+            {% else %}
+              <span style="font-family:var(--mono); font-size:10px; color:var(--muted);">No data</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- DAILY HISTORY ────────────────────────────────────────── -->
+<div>
+  <div class="section-label">Daily history — last 30 days</div>
+
+  {% if history %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Published</th>
+          <th>Won</th>
+          <th>Lost</th>
+          <th>Void</th>
+          <th>Win rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rec in history %}
+          <tr>
+            <td class="mono" style="color:var(--muted);">{{ rec.date|date:"D j M" }}</td>
+            <td class="mono">{{ rec.total_published }}</td>
+            <td class="mono" style="color:var(--win);">{{ rec.total_won }}</td>
+            <td class="mono" style="color:var(--loss);">{{ rec.total_lost }}</td>
+            <td class="mono" style="color:var(--muted);">{{ rec.total_void }}</td>
+            <td>
+              <span class="mono" style="
+                color: {% if rec.win_rate >= 65 %}var(--win){% elif rec.win_rate >= 50 %}var(--warn){% else %}var(--loss){% endif %};">
+                {{ rec.win_rate }}%
+              </span>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div style="padding:64px 0; text-align:center; border-top:1px solid var(--border);">
+      <div style="font-family:var(--mono); font-size:11px; letter-spacing:0.1em;
+                  color:var(--muted); text-transform:uppercase; margin-bottom:10px;">No data yet</div>
+      <p style="color:var(--dim); font-size:13px;">Graded results will appear here after the first full day.</p>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

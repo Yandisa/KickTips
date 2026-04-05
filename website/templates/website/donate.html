@@ -1,36 +1,99 @@
 {% extends 'website/base.html' %}
-{% block title %}Support KickTips{% endblock %}
+{% block title %}Support KickTips — Donate{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Copy-to-clipboard fields */
+  .eft-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  .eft-field:last-child { border-bottom: none; }
+  .eft-field:hover { background: rgba(232,255,71,0.03); }
+  .eft-field-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    min-width: 120px;
+    flex-shrink: 0;
+  }
+  .eft-field-value {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.04em;
+    flex: 1;
+  }
+  .copy-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .copy-btn.copied { border-color: var(--win); color: var(--win); }
+
+  /* Payment method tabs */
+  .pay-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 0; }
+  .pay-tab {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    margin-bottom: -1px;
+  }
+  .pay-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .pay-tab:hover:not(.active) { color: var(--text); }
+  .pay-panel { display: none; }
+  .pay-panel.active { display: block; }
+</style>
+{% endblock %}
 
 {% block content %}
 
 <!-- HERO -->
-<div style="max-width:640px; padding:52px 0 64px; border-bottom:1px solid var(--border); margin-bottom:56px; position:relative;">
-
-  <div style="width:36px; height:3px; background:var(--accent); margin-bottom:18px; border-radius:2px;"></div>
-
+<div style="padding:52px 0 60px; border-bottom:1px solid var(--border); margin-bottom:52px; position:relative;">
+  <div style="width:36px; height:3px; background:var(--accent); margin-bottom:16px; border-radius:2px;"></div>
   <div class="page-eyebrow">Keep the lights on</div>
-  <h1 class="page-title">
-    Did we help you<br>pick a winner?
-  </h1>
-
-  <p style="font-size:15px; color:var(--muted); line-height:1.75; max-width:460px; margin-bottom:32px; font-weight:300;">
+  <h1 class="page-title">Did we help you<br>pick a winner?</h1>
+  <p style="font-size:15px; color:var(--muted); line-height:1.75; max-width:460px; margin-bottom:0; font-weight:300;">
     KickTips is 100% free — no subscriptions, no paywalled tips, no ads.
     We publish every prediction and track every result publicly.
-    A small donation helps cover server costs and keeps predictions running daily.
+    A small contribution helps cover server costs and keeps predictions running daily.
   </p>
-
-  <div style="display:flex; gap:12px; flex-wrap:wrap;">
-    {% if paypal %}
-      <a href="{{ paypal }}" target="_blank" class="btn btn-accent">Donate via PayPal</a>
-    {% endif %}
-    {% if yoco %}
-      <a href="{{ yoco }}" target="_blank" class="btn btn-ghost">Donate via Yoco</a>
-    {% endif %}
-  </div>
 </div>
 
 <!-- STATS -->
-<div class="stat-row" style="margin-bottom:56px; grid-template-columns:repeat(3,1fr);">
+<div class="stat-row" style="margin-bottom:52px; grid-template-columns:repeat(3,1fr);">
   <div class="stat-cell">
     <div class="val accent">{{ alltime.win_rate }}%</div>
     <div class="lbl">All-time win rate</div>
@@ -45,9 +108,106 @@
   </div>
 </div>
 
+<!-- PAYMENT OPTIONS -->
+<div style="margin-bottom:52px;">
+  <div class="section-label">How to donate</div>
+
+  <div style="border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--surface);">
+
+    <!-- Tabs -->
+    <div class="pay-tabs">
+      <button class="pay-tab active" onclick="switchTab(this,'eft')">EFT / Bank Transfer</button>
+      {% if paypal %}<button class="pay-tab" onclick="switchTab(this,'paypal')">PayPal</button>{% endif %}
+      {% if yoco  %}<button class="pay-tab" onclick="switchTab(this,'yoco')">Yoco</button>{% endif %}
+    </div>
+
+    <!-- EFT Panel -->
+    <div class="pay-panel active" id="panel-eft">
+
+      <!-- Card header accent bar -->
+      <div style="height:3px; background:linear-gradient(90deg, var(--accent), var(--accent2));"></div>
+
+      <div style="padding:20px 20px 8px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div>
+          <div style="font-family:var(--display); font-size:1.4rem; letter-spacing:0.04em; color:var(--text); line-height:1; margin-bottom:4px;">Bank Transfer</div>
+          <div style="font-family:var(--mono); font-size:10px; color:var(--muted); font-weight:600; letter-spacing:0.1em; text-transform:uppercase;">South African EFT</div>
+        </div>
+        <div style="font-family:var(--mono); font-size:10px; color:var(--muted); font-weight:600; letter-spacing:0.1em; text-transform:uppercase; text-align:right; line-height:1.6;">
+          No minimum amount<br>
+          <span style="color:var(--accent);">Any contribution counts</span>
+        </div>
+      </div>
+
+      <!-- Copyable fields -->
+      <div style="border-top:1px solid var(--border); margin-top:8px;">
+        <div class="eft-field">
+          <span class="eft-field-label">Account name</span>
+          <span class="eft-field-value" id="val-name">KickTips</span>
+          <button class="copy-btn" onclick="copyField(this,'val-name')">Copy</button>
+        </div>
+        <div class="eft-field">
+          <span class="eft-field-label">Bank</span>
+          <span class="eft-field-value" id="val-bank">First National Bank</span>
+          <button class="copy-btn" onclick="copyField(this,'val-bank')">Copy</button>
+        </div>
+        <div class="eft-field">
+          <span class="eft-field-label">Account number</span>
+          <span class="eft-field-value" id="val-accno">62000000000</span>
+          <button class="copy-btn" onclick="copyField(this,'val-accno')">Copy</button>
+        </div>
+        <div class="eft-field">
+          <span class="eft-field-label">Branch code</span>
+          <span class="eft-field-value" id="val-branch">250655</span>
+          <button class="copy-btn" onclick="copyField(this,'val-branch')">Copy</button>
+        </div>
+        <div class="eft-field">
+          <span class="eft-field-label">Account type</span>
+          <span class="eft-field-value" id="val-type">Cheque / Current</span>
+          <button class="copy-btn" onclick="copyField(this,'val-type')">Copy</button>
+        </div>
+        <div class="eft-field">
+          <span class="eft-field-label">Reference</span>
+          <span class="eft-field-value" id="val-ref">KICKTIPS</span>
+          <button class="copy-btn" onclick="copyField(this,'val-ref')">Copy</button>
+        </div>
+      </div>
+
+      <div style="padding:14px 20px; border-top:1px solid var(--border); background:rgba(255,255,255,0.015);">
+        <p style="font-family:var(--mono); font-size:10.5px; color:var(--muted); line-height:1.6; letter-spacing:0.02em;">
+          Use your name as the reference so we can acknowledge your support.
+          Please use the reference <strong style="color:var(--accent);">KICKTIPS</strong> if unsure.
+        </p>
+      </div>
+    </div>
+
+    <!-- PayPal Panel -->
+    {% if paypal %}
+    <div class="pay-panel" id="panel-paypal">
+      <div style="padding:40px 24px; text-align:center;">
+        <div style="font-family:var(--display); font-size:1.6rem; letter-spacing:0.04em; color:var(--text); margin-bottom:10px;">PayPal</div>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:24px; font-weight:300;">Fast and secure. Any amount appreciated.</p>
+        <a href="{{ paypal }}" target="_blank" class="btn btn-accent">Donate via PayPal</a>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Yoco Panel -->
+    {% if yoco %}
+    <div class="pay-panel" id="panel-yoco">
+      <div style="padding:40px 24px; text-align:center;">
+        <div style="font-family:var(--display); font-size:1.6rem; letter-spacing:0.04em; color:var(--text); margin-bottom:10px;">Yoco</div>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:24px; font-weight:300;">South African card payments via Yoco.</p>
+        <a href="{{ yoco }}" target="_blank" class="btn btn-accent">Donate via Yoco</a>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
 <!-- RECENT WINS -->
 {% if recent_wins %}
-  <div>
+  <div style="margin-bottom:52px;">
     <div class="section-label">Recent winning tips</div>
     {% for tip in recent_wins %}
       <div style="display:flex; align-items:center; justify-content:space-between; gap:20px;
@@ -75,5 +235,39 @@
     {% endfor %}
   </div>
 {% endif %}
+
+<!-- CTA TO WINNERS PAGE -->
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+            padding:28px 24px; display:flex; align-items:center; justify-content:space-between;
+            gap:20px; flex-wrap:wrap; position:relative; overflow:hidden;">
+  <div style="position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--win);"></div>
+  <div style="padding-left:8px;">
+    <div class="page-eyebrow" style="color:var(--win); margin-bottom:6px;">Celebrate your wins</div>
+    <p style="font-size:14px; color:var(--muted); max-width:360px; line-height:1.65; font-weight:300;">
+      Did you land a big acca using KickTips? Share it — your win gets shown in the ticker on every page.
+    </p>
+  </div>
+  <a href="{% url 'winners' %}" class="btn btn-win">Share a Win</a>
+</div>
+
+<script>
+function switchTab(btn, panelId) {
+  document.querySelectorAll('.pay-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.pay-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  const panel = document.getElementById('panel-' + panelId);
+  if (panel) panel.classList.add('active');
+}
+
+function copyField(btn, id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+</script>
 
 {% endblock %}

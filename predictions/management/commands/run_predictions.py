@@ -30,8 +30,8 @@ from predictions.reasoner import generate_reasoning
 logger = logging.getLogger(__name__)
 
 # Only publish tips where the fixture has at least this confidence
-PRIMARY_CONFIDENCE  = 63   # Strong tips — publish prominently
-FALLBACK_CONFIDENCE = 60   # Minimum — nothing below 60% ever published
+PRIMARY_CONFIDENCE  = 65   # Strong tips — publish prominently
+FALLBACK_CONFIDENCE = 65   # Minimum — nothing below 65% ever published
 
 
 class Command(BaseCommand):

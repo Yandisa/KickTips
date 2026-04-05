@@ -1,17 +1,15 @@
 {% extends 'website/base.html' %}
 {% block title %}Matches — KickTips{% endblock %}
-
 {% block content %}
 
-<!-- HEADER -->
 <div style="padding-bottom:28px; border-bottom:1px solid var(--border); margin-bottom:24px;">
   <div class="page-eyebrow">Match listings</div>
   <h1 class="page-title" style="font-size:1.9rem; margin-bottom:16px;">
     {{ selected_date|date:"l j F" }}
   </h1>
 
-  <!-- FILTERS -->
   <form method="get" class="filter-row" style="margin:0; gap:6px;">
+
     <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}"
            onchange="this.form.submit()" style="flex:1; min-width:130px;">
 
@@ -50,14 +48,14 @@
       <option value="confidence" {% if sort_by == 'confidence' %}selected{% endif %}>By confidence</option>
       <option value="league"     {% if sort_by == 'league'     %}selected{% endif %}>By league</option>
     </select>
+
   </form>
 
-  <!-- Active filter summary -->
   {% if result_filter or min_conf > 0 or league_filter %}
     <div style="margin-top:10px; font-family:var(--mono); font-size:10px; color:var(--muted);">
-      Showing {{ fixtures|length }} fixture{{ fixtures|length|pluralize }}
-      {% if result_filter %} · {{ result_filter }}{% endif %}
-      {% if min_conf > 0 %} · {{ min_conf }}%+ confidence{% endif %}
+      {{ fixtures|length }} fixture{{ fixtures|length|pluralize }}
+      {% if result_filter %}&nbsp;· {{ result_filter }}{% endif %}
+      {% if min_conf > 0 %}&nbsp;· {{ min_conf|floatformat:0 }}%+ confidence{% endif %}
     </div>
   {% endif %}
 </div>
@@ -66,7 +64,6 @@
   {% for group in league_groups %}
     <div style="margin-bottom:32px;">
 
-      <!-- League header -->
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:0;">
         <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.12em;
                     text-transform:uppercase; color:var(--muted); white-space:nowrap;">
@@ -75,13 +72,11 @@
         <div style="flex:1; height:1px; background:var(--border);"></div>
       </div>
 
-      <!-- Fixture rows -->
       {% for fixture in group.fixtures %}
         <a href="{% url 'match_detail' fixture.pk %}"
            style="display:grid; grid-template-columns:44px 1fr auto;
                   align-items:center; gap:12px; padding:13px 0;
-                  border-bottom:1px solid var(--border);
-                  transition:background 0.1s;"
+                  border-bottom:1px solid var(--border); transition:background 0.1s;"
            onmouseover="this.style.background='rgba(56,189,248,0.03)'; this.style.marginLeft='-8px'; this.style.marginRight='-8px'; this.style.paddingLeft='8px'; this.style.paddingRight='8px';"
            onmouseout="this.style.background=''; this.style.marginLeft=''; this.style.marginRight=''; this.style.paddingLeft=''; this.style.paddingRight='';">
 
@@ -91,7 +86,7 @@
               {{ fixture.kickoff|date:"H:i" }}
             </div>
             {% if fixture.status == 'live' %}
-              <div style="font-family:var(--mono); font-size:8px; letter-spacing:0.08em;
+              <div style="font-family:var(--mono); font-size:8px; letter-spacing:0.06em;
                           text-transform:uppercase; color:var(--win); margin-top:2px;">● Live</div>
             {% elif fixture.status == 'finished' %}
               <div style="font-family:var(--mono); font-size:8px; color:var(--muted); margin-top:2px;">FT</div>
@@ -113,7 +108,7 @@
             </div>
           </div>
 
-          <!-- Best tip + result dot -->
+          <!-- Best tip + result indicator -->
           <div style="text-align:right; flex-shrink:0;">
             {% if fixture.best_prediction %}
               {% with p=fixture.best_prediction %}
@@ -155,98 +150,6 @@
     <div style="font-family:var(--mono); font-size:11px; letter-spacing:0.1em;
                 color:var(--muted); text-transform:uppercase; margin-bottom:10px;">No fixtures</div>
     <p style="color:var(--dim); font-size:13px;">Try adjusting the date or filters.</p>
-  </div>
-{% endif %}
-
-{% endblock %}
-
-
-{% if league_groups %}
-  {% for group in league_groups %}
-    <div style="margin-bottom:32px;">
-
-      <!-- League header -->
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:0;">
-        <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.12em;
-                    text-transform:uppercase; color:var(--muted); white-space:nowrap;">
-          {{ group.label }}
-        </div>
-        <div style="flex:1; height:1px; background:var(--border);"></div>
-      </div>
-
-      <!-- Fixture rows -->
-      {% for fixture in group.fixtures %}
-        <a href="{% url 'match_detail' fixture.pk %}"
-           style="display:grid; grid-template-columns:44px 1fr auto;
-                  align-items:center; gap:12px; padding:13px 0;
-                  border-bottom:1px solid var(--border);
-                  transition:background 0.1s;"
-           onmouseover="this.style.background='rgba(56,189,248,0.03)'; this.style.marginLeft='-8px'; this.style.marginRight='-8px'; this.style.paddingLeft='8px'; this.style.paddingRight='8px';"
-           onmouseout="this.style.background=''; this.style.marginLeft=''; this.style.marginRight=''; this.style.paddingLeft=''; this.style.paddingRight='';">
-
-          <!-- Time -->
-          <div style="font-family:var(--mono); font-size:11px; color:var(--muted); text-align:right;">
-            {{ fixture.kickoff|date:"H:i" }}
-          </div>
-
-          <!-- Teams -->
-          <div style="min-width:0;">
-            <div style="font-size:13.5px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-              {{ fixture.home_team.name }}
-              <span style="color:var(--dim); font-weight:400; margin:0 5px;">vs</span>
-              {{ fixture.away_team.name }}
-              {% if fixture.status == 'finished' %}
-                <span style="font-family:var(--mono); font-size:11.5px; color:var(--accent); margin-left:8px;">
-                  {{ fixture.home_score }}–{{ fixture.away_score }}
-                </span>
-              {% endif %}
-            </div>
-            {% if fixture.status == 'live' %}
-              <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.08em;
-                          text-transform:uppercase; color:var(--win); margin-top:2px;">Live</div>
-            {% endif %}
-          </div>
-
-          <!-- Best tip -->
-          <div style="text-align:right; flex-shrink:0;">
-            {% if fixture.best_prediction %}
-              {% with p=fixture.best_prediction %}
-                <div style="font-family:var(--mono); font-size:8.5px; letter-spacing:0.1em;
-                            text-transform:uppercase; color:var(--muted); margin-bottom:3px;">
-                  {% if p.market == "ou_goals" %}Goals
-                  {% elif p.market == "dc" %}DC
-                  {% elif p.market == "btts" %}BTTS
-                  {% elif p.market == "corners" %}Corners
-                  {% elif p.market == "1x2" %}Result
-                  {% else %}{{ p.market }}{% endif %}
-                </div>
-                <div style="display:flex; align-items:center; justify-content:flex-end; gap:5px;">
-                  <div class="tip-chip" style="font-size:10px; padding:3px 7px;">{{ p.tip }}</div>
-                  {% if p.result == 'won' %}
-                    <span style="width:7px; height:7px; border-radius:50%; background:var(--win); flex-shrink:0; display:inline-block;"></span>
-                  {% elif p.result == 'lost' %}
-                    <span style="width:7px; height:7px; border-radius:50%; background:var(--loss); flex-shrink:0; display:inline-block;"></span>
-                  {% endif %}
-                </div>
-                <div style="font-family:var(--mono); font-size:10px; color:var(--muted); margin-top:3px;">
-                  {{ p.confidence|floatformat:0 }}%
-                </div>
-              {% endwith %}
-            {% else %}
-              <div class="tip-chip muted" style="font-size:10px; padding:3px 7px;">&mdash;</div>
-            {% endif %}
-          </div>
-
-        </a>
-      {% endfor %}
-    </div>
-  {% endfor %}
-
-{% else %}
-  <div style="padding:64px 0; text-align:center; border-top:1px solid var(--border);">
-    <div style="font-family:var(--mono); font-size:11px; letter-spacing:0.1em;
-                color:var(--muted); text-transform:uppercase; margin-bottom:10px;">No fixtures</div>
-    <p style="color:var(--dim); font-size:13px;">Try adjusting the date or filter.</p>
   </div>
 {% endif %}
 

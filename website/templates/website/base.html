@@ -42,32 +42,19 @@
     }
     a { color: inherit; text-decoration: none; }
 
-    /* Subtle pitch-pattern background */
     body::before {
       content: '';
       position: fixed;
       inset: 0;
       background-image:
-        repeating-linear-gradient(
-          0deg,
-          transparent,
-          transparent 59px,
-          rgba(255,255,255,0.012) 59px,
-          rgba(255,255,255,0.012) 60px
-        ),
-        repeating-linear-gradient(
-          90deg,
-          transparent,
-          transparent 59px,
-          rgba(255,255,255,0.008) 59px,
-          rgba(255,255,255,0.008) 60px
-        );
+        repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.012) 59px, rgba(255,255,255,0.012) 60px),
+        repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.008) 59px, rgba(255,255,255,0.008) 60px);
       pointer-events: none;
       z-index: 0;
     }
     body > * { position: relative; z-index: 1; }
 
-    /* NAV */
+    /* ── NAV ── */
     nav {
       position: sticky;
       top: 0;
@@ -80,7 +67,6 @@
       display: flex;
       align-items: center;
       padding: 0 20px;
-      gap: 0;
     }
     .nav-brand {
       font-family: var(--display);
@@ -108,9 +94,7 @@
     .nav-links a::after {
       content: '';
       position: absolute;
-      bottom: -1px;
-      left: 12px;
-      right: 12px;
+      bottom: -1px; left: 12px; right: 12px;
       height: 2px;
       background: var(--accent);
       transform: scaleX(0);
@@ -120,8 +104,111 @@
     .nav-links a:hover::after { transform: scaleX(1); }
     .nav-links a.active { color: var(--accent); }
     .nav-links a.active::after { transform: scaleX(1); }
+    /* Donate pill in nav */
+    .nav-donate {
+      margin-left: 8px;
+      background: var(--accent) !important;
+      color: #060608 !important;
+      padding: 7px 14px !important;
+      border-radius: var(--radius);
+      font-family: var(--mono) !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.1em !important;
+      transition: background 0.15s, transform 0.15s !important;
+    }
+    .nav-donate::after { display: none !important; }
+    .nav-donate:hover  { background: var(--accent-dark) !important; transform: translateY(-1px); color: #060608 !important; }
 
-    /* CONTAINER */
+    /* ── WINNERS TICKER ── */
+    .winners-ticker {
+      width: 100%;
+      background: rgba(74,240,160,0.05);
+      border-bottom: 1px solid rgba(74,240,160,0.14);
+      overflow: hidden;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      position: relative;
+      z-index: 190;
+    }
+    .ticker-label {
+      flex-shrink: 0;
+      padding: 0 14px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      border-right: 1px solid rgba(74,240,160,0.18);
+      background: rgba(74,240,160,0.07);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--win);
+      white-space: nowrap;
+    }
+    .ticker-track {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      height: 100%;
+    }
+    .ticker-inner {
+      display: inline-flex;
+      align-items: center;
+      height: 100%;
+      white-space: nowrap;
+      animation: tickerScroll 32s linear infinite;
+    }
+    .ticker-inner:hover { animation-play-state: paused; cursor: default; }
+    @keyframes tickerScroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .ticker-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding-right: 32px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 0.02em;
+    }
+    .ticker-bullet {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--win);
+      flex-shrink: 0;
+    }
+    .ticker-name   { color: var(--text); font-weight: 700; }
+    .ticker-amount { color: var(--win);  font-weight: 700; }
+    .ticker-acca   { color: var(--accent); }
+    .ticker-msg    { color: var(--muted); font-style: italic; font-weight: 400; }
+    .ticker-sep    { display: inline-block; width: 1px; height: 12px; background: rgba(255,255,255,0.1); margin-right: 24px; vertical-align: middle; }
+    .ticker-share {
+      flex-shrink: 0;
+      padding: 0 12px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      border-left: 1px solid rgba(74,240,160,0.18);
+    }
+    .ticker-share a {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--win);
+      opacity: 0.65;
+      transition: opacity 0.15s;
+    }
+    .ticker-share a:hover { opacity: 1; }
+
+    /* ── CONTAINER ── */
     .container {
       max-width: 860px;
       margin: 0 auto;
@@ -129,7 +216,6 @@
       animation: fadein 0.3s ease;
     }
 
-    /* PAGE HEADERS */
     .page-eyebrow {
       font-family: var(--mono);
       font-size: 11px;
@@ -168,7 +254,6 @@
     }
     .rule { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
 
-    /* STAT GRID */
     .stat-row {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -177,269 +262,92 @@
       overflow: hidden;
       background: var(--surface);
     }
-    .stat-cell {
-      padding: 20px 18px;
-      border-right: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-    }
+    .stat-cell { padding: 20px 18px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
     .stat-cell:nth-child(2n) { border-right: none; }
     .stat-cell:nth-last-child(-n+2) { border-bottom: none; }
-    .stat-cell .val {
-      font-family: var(--display);
-      font-size: 2.6rem;
-      line-height: 1;
-      letter-spacing: 0.02em;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
+    .stat-cell .val { font-family: var(--display); font-size: 2.6rem; line-height: 1; letter-spacing: 0.02em; color: var(--text); margin-bottom: 4px; }
     .stat-cell .val.accent { color: var(--accent); }
     .stat-cell .val.win    { color: var(--win); }
     .stat-cell .val.loss   { color: var(--loss); }
-    .stat-cell .lbl {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      font-weight: 600;
-    }
+    .stat-cell .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 
-    /* TIP CHIP */
     .tip-chip {
       display: inline-block;
-      font-family: var(--mono);
-      font-size: 11px;
-      font-weight: 700;
+      font-family: var(--mono); font-size: 11px; font-weight: 700;
       padding: 4px 10px;
-      background: var(--accent-dim);
-      color: var(--accent);
+      background: var(--accent-dim); color: var(--accent);
       border: 1px solid rgba(232,255,71,0.25);
-      border-radius: 2px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      white-space: nowrap;
+      border-radius: 2px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
     }
-    .tip-chip.muted {
-      background: transparent;
-      color: var(--dim);
-      border-color: var(--border);
-    }
+    .tip-chip.muted { background: transparent; color: var(--dim); border-color: var(--border); }
 
-    /* CONFIDENCE */
     .conf-track { height: 2px; background: var(--dim); border-radius: 1px; overflow: hidden; }
-    .conf-fill { height: 100%; background: var(--accent); border-radius: 1px; }
+    .conf-fill  { height: 100%; background: var(--accent); border-radius: 1px; }
 
-    /* PREDICTION BLOCK */
-    .pred-block {
-      padding: 20px 18px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      margin-bottom: 8px;
-      background: var(--surface);
-      transition: border-color 0.15s;
-    }
+    .pred-block { padding: 20px 18px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; background: var(--surface); transition: border-color 0.15s; }
     .pred-block:hover { border-color: var(--border-hi); }
-    .pred-market {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .pred-tip {
-      font-family: var(--display);
-      font-size: 1.8rem;
-      line-height: 1;
-      letter-spacing: 0.04em;
-      color: var(--text);
-      margin-bottom: 10px;
-      text-transform: uppercase;
-    }
+    .pred-market { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+    .pred-tip { font-family: var(--display); font-size: 1.8rem; line-height: 1; letter-spacing: 0.04em; color: var(--text); margin-bottom: 10px; text-transform: uppercase; }
     .pred-reasoning { font-size: 13px; color: var(--muted); line-height: 1.7; font-weight: 300; }
 
-    /* RESULT PILLS */
-    .result-pill {
-      display: inline-block;
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-weight: 700;
-      padding: 3px 8px;
-      border: 1px solid currentColor;
-      border-radius: 2px;
-    }
+    .result-pill { display: inline-block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; padding: 3px 8px; border: 1px solid currentColor; border-radius: 2px; }
     .result-pill.won     { color: var(--win); }
     .result-pill.lost    { color: var(--loss); }
     .result-pill.pending { color: var(--warn); }
     .result-pill.void    { color: var(--muted); }
 
-    /* DATA TABLE */
     .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .data-table th {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      font-weight: 600;
-      text-align: left;
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border);
-    }
-    .data-table td {
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--border);
-      color: var(--text);
-    }
+    .data-table th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 600; text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
     .data-table tr:last-child td { border-bottom: none; }
     .data-table tr:hover td { background: rgba(232,255,71,0.025); }
     .data-table .mono { font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; }
     .data-table .win  { color: var(--win); }
     .data-table .loss { color: var(--loss); }
 
-    /* FILTERS */
     .filter-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 24px; }
     select, input[type="date"] {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      padding: 8px 12px;
-      border-radius: var(--radius);
-      outline: none;
-      -webkit-appearance: none;
-      cursor: pointer;
-      transition: border-color 0.15s;
-      min-height: 38px;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+      padding: 8px 12px; border-radius: var(--radius); outline: none; -webkit-appearance: none;
+      cursor: pointer; transition: border-color 0.15s; min-height: 38px;
     }
     select:hover, input[type="date"]:hover { border-color: var(--border-hi); }
     select:focus, input[type="date"]:focus { border-color: var(--accent); }
 
-    /* BUTTONS */
-    .btn {
-      display: inline-block;
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      padding: 10px 22px;
-      cursor: pointer;
-      transition: all 0.15s;
-      border: none;
-      border-radius: var(--radius);
-      min-height: 38px;
-    }
-    .btn-accent {
-      background: var(--accent);
-      color: #060608;
-    }
-    .btn-accent:hover {
-      background: var(--accent-dark);
-      transform: translateY(-1px);
-    }
-    .btn-ghost {
-      background: transparent;
-      border: 1px solid var(--border-hi);
-      color: var(--text);
-    }
-    .btn-ghost:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
+    .btn { display: inline-block; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 10px 22px; cursor: pointer; transition: all 0.15s; border: none; border-radius: var(--radius); min-height: 38px; }
+    .btn-accent { background: var(--accent); color: #060608; }
+    .btn-accent:hover { background: var(--accent-dark); transform: translateY(-1px); }
+    .btn-ghost  { background: transparent; border: 1px solid var(--border-hi); color: var(--text); }
+    .btn-ghost:hover  { border-color: var(--accent); color: var(--accent); }
+    .btn-win    { background: var(--win); color: #060608; }
+    .btn-win:hover    { opacity: 0.88; transform: translateY(-1px); }
 
-    /* ACCORDION */
     details > summary { list-style: none; cursor: pointer; }
     details > summary::-webkit-details-marker { display: none; }
     .accordion { border-bottom: 1px solid var(--border); }
-    .accordion summary {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 0;
-      font-size: 14px;
-      font-weight: 500;
-      user-select: none;
-      gap: 12px;
-      transition: color 0.15s;
-    }
-    .accordion summary .caret {
-      font-family: var(--mono);
-      font-size: 10px;
-      color: var(--muted);
-      transition: transform 0.2s;
-      flex-shrink: 0;
-    }
+    .accordion summary { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; font-size: 14px; font-weight: 500; user-select: none; gap: 12px; transition: color 0.15s; }
+    .accordion summary .caret { font-family: var(--mono); font-size: 10px; color: var(--muted); transition: transform 0.2s; flex-shrink: 0; }
     .accordion[open] summary .caret { transform: rotate(90deg); }
     .accordion[open] summary { color: var(--accent); }
     .accordion-body { padding: 4px 0 20px; }
 
-    /* FORM BADGES */
-    .form-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 24px;
-      height: 24px;
-      border-radius: 2px;
-      font-family: var(--mono);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0;
-    }
+    .form-badge { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 2px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0; }
     .form-badge.W { background: rgba(74,240,160,0.15); color: var(--win); }
-    .form-badge.D { background: rgba(255,179,64,0.12); color: var(--warn); }
-    .form-badge.L { background: rgba(255,85,102,0.12); color: var(--loss); }
+    .form-badge.D { background: rgba(255,179,64,0.12);  color: var(--warn); }
+    .form-badge.L { background: rgba(255,85,102,0.12);  color: var(--loss); }
 
-    /* HISTORY SCORE */
-    .history-score {
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      flex-shrink: 0;
-    }
+    .history-score { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; flex-shrink: 0; }
     .history-score.win  { color: var(--win); }
     .history-score.draw { color: var(--warn); }
     .history-score.loss { color: var(--loss); }
 
-    /* FOOTER */
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 24px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      background: var(--surface);
-    }
-    footer .brand {
-      font-family: var(--display);
-      font-size: 1.4rem;
-      letter-spacing: 0.04em;
-      color: var(--text);
-      line-height: 1;
-    }
+    footer { border-top: 1px solid var(--border); padding: 24px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: var(--surface); }
+    footer .brand { font-family: var(--display); font-size: 1.4rem; letter-spacing: 0.04em; color: var(--text); line-height: 1; }
     footer .brand em { font-style: normal; color: var(--accent); }
-    footer .legal {
-      font-size: 11px;
-      color: var(--muted);
-      max-width: 420px;
-      line-height: 1.5;
-      text-align: right;
-    }
+    footer .legal { font-size: 11px; color: var(--muted); max-width: 420px; line-height: 1.5; text-align: right; }
 
-    @keyframes fadein {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: none; }
-    }
+    @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
     @media (min-width: 640px) {
       nav { padding: 0 32px; }
@@ -457,6 +365,7 @@
     }
     @media (max-width: 639px) {
       .nav-links a { padding: 6px 8px; font-size: 12px; }
+      .nav-donate { display: none; }
       footer { flex-direction: column; text-align: center; }
       footer .legal { text-align: center; max-width: 100%; }
     }
@@ -468,13 +377,25 @@
 <nav>
   <div class="nav-brand">KICK<em>TIPS</em></div>
   <div class="nav-links">
-    <a href="{% url 'home' %}"         {% if request.resolver_match.url_name == 'home' %}class="active"{% endif %}>Home</a>
-    <a href="{% url 'matches' %}"      {% if request.resolver_match.url_name == 'matches' %}class="active"{% endif %}>Matches</a>
-    <a href="{% url 'record' %}"       {% if request.resolver_match.url_name == 'record' %}class="active"{% endif %}>Record</a>
+    <a href="{% url 'home' %}"         {% if request.resolver_match.url_name == 'home'         %}class="active"{% endif %}>Home</a>
+    <a href="{% url 'matches' %}"      {% if request.resolver_match.url_name == 'matches'      %}class="active"{% endif %}>Matches</a>
+    <a href="{% url 'record' %}"       {% if request.resolver_match.url_name == 'record'       %}class="active"{% endif %}>Record</a>
     <a href="{% url 'accumulators' %}" {% if request.resolver_match.url_name == 'accumulators' %}class="active"{% endif %}>Accas</a>
-    <a href="{% url 'donate' %}"       {% if request.resolver_match.url_name == 'donate' %}class="active"{% endif %}>Donate</a>
+    <a href="{% url 'winners' %}"      {% if request.resolver_match.url_name == 'winners'      %}class="active"{% endif %}>Winners</a>
+    <a href="{% url 'donate' %}" class="nav-donate">Donate</a>
   </div>
 </nav>
+
+<!-- WINNERS TICKER — powered by localStorage, updates live across tabs -->
+<div class="winners-ticker">
+  <div class="ticker-label">Winners</div>
+  <div class="ticker-track">
+    <div class="ticker-inner" id="tickerInner"><!-- JS --></div>
+  </div>
+  <div class="ticker-share">
+    <a href="{% url 'winners' %}">Share your win</a>
+  </div>
+</div>
 
 <div class="container">
   {% block content %}{% endblock %}
@@ -483,13 +404,76 @@
 <footer>
   <div class="brand">KICK<em>TIPS</em></div>
   <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-    <a href="{% url 'donate' %}" class="btn btn-accent" style="font-size:11px; padding:8px 18px;">Support us</a>
+    <a href="{% url 'winners' %}" class="btn btn-win"    style="font-size:11px; padding:8px 18px;">Share a Win</a>
+    <a href="{% url 'donate' %}"  class="btn btn-accent" style="font-size:11px; padding:8px 18px;">Donate</a>
   </div>
   <div class="legal">
     18+ only. Predictions are automated data-driven estimates, not guarantees.
     Every tip published. Every result recorded publicly. Bet responsibly.
   </div>
 </footer>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+//  KickTips Winners Ticker
+//  Wins submitted on the /winners/ page are saved to
+//  localStorage under 'kt_winners' and read back here.
+// ─────────────────────────────────────────────────────────────
+const SEED_WINNERS = [
+  { name:"Themba",  amount:"R850",   acca:"Faka Yonke",  msg:"" },
+  { name:"Lerato",  amount:"R2 400", acca:"Shaya Zonke", msg:"" },
+  { name:"Sipho",   amount:"R1 100", acca:"Faka Yonke",  msg:"First time — won first try!" },
+  { name:"Nandi",   amount:"R3 200", acca:"Istimela",    msg:"" },
+  { name:"Kagiso",  amount:"R600",   acca:"Faka Yonke",  msg:"Easy money" },
+  { name:"Ayanda",  amount:"R5 000", acca:"Istimela",    msg:"Istimela never misses" },
+  { name:"Bongani", amount:"R750",   acca:"Shaya Zonke", msg:"" },
+  { name:"Zanele",  amount:"R1 800", acca:"Shaya Zonke", msg:"Couldn't believe it" },
+];
+
+function getWinners() {
+  try {
+    const raw = localStorage.getItem('kt_winners');
+    const user = raw ? JSON.parse(raw) : [];
+    return [...user, ...SEED_WINNERS];
+  } catch(e) { return SEED_WINNERS; }
+}
+
+function renderTicker() {
+  const el = document.getElementById('tickerInner');
+  if (!el) return;
+  const wins = getWinners();
+  if (!wins.length) return;
+
+  // Double the list so the loop is seamless
+  let html = '';
+  [0,1].forEach(() => {
+    wins.forEach(w => {
+      const msgPart = w.msg
+        ? `<span class="ticker-msg">&nbsp;"${w.msg}"</span>`
+        : '';
+      html += `<span class="ticker-item">
+        <span class="ticker-bullet"></span>
+        <span class="ticker-name">${w.name}</span>&nbsp;won&nbsp;
+        <span class="ticker-amount">${w.amount}</span>&nbsp;with&nbsp;
+        <span class="ticker-acca">${w.acca}</span>${msgPart}
+      </span><span class="ticker-sep"></span>`;
+    });
+  });
+  el.innerHTML = html;
+
+  // Calibrate speed: ~80px per second baseline
+  const totalWidth = el.scrollWidth / 2;
+  const dur = Math.max(18, Math.round(totalWidth / 80));
+  el.style.animationDuration = dur + 's';
+}
+
+document.addEventListener('DOMContentLoaded', renderTicker);
+
+// Live update if winner submitted in another tab
+window.addEventListener('storage', e => {
+  if (e.key === 'kt_winners') renderTicker();
+});
+</script>
 
 </body>
 </html>

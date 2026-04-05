@@ -243,10 +243,14 @@ def _normalize_list_match(match: dict, tournament_block: dict, league_info: dict
         "country_name":        league_info["country"],
         "league_api_id":       league_info["api_id"],
         "league_tier":         league_info["tier"],
-        "home_team_id":        home.get("team_id", ""),
-        "home_team_name":      home.get("name", ""),
-        "away_team_id":        away.get("team_id", ""),
-        "away_team_name":      away.get("name", ""),
+        "home_team_id":        home.get("team_id", "") or home.get("id", ""),
+        "home_team_name":      (home.get("name") or home.get("short_name") or
+                                home.get("shortName") or home.get("title") or
+                                home.get("participant_name") or ""),
+        "away_team_id":        away.get("team_id", "") or away.get("id", ""),
+        "away_team_name":      (away.get("name") or away.get("short_name") or
+                                away.get("shortName") or away.get("title") or
+                                away.get("participant_name") or ""),
         "home_score":          scores.get("home"),
         "away_score":          scores.get("away"),
         "venue":               "",
@@ -972,10 +976,14 @@ def normalize_match(details: dict) -> dict:
         "country_name":    country.get("name", ""),
         "league_api_id":   league_info["api_id"] if league_info else None,
         "league_tier":     league_info["tier"] if league_info else 3,
-        "home_team_id":    home_team.get("team_id", ""),
-        "home_team_name":  home_team.get("name", ""),
-        "away_team_id":    away_team.get("team_id", ""),
-        "away_team_name":  away_team.get("name", ""),
+        "home_team_id":    home_team.get("team_id", "") or home_team.get("id", ""),
+        "home_team_name":  (home_team.get("name") or home_team.get("short_name") or
+                            home_team.get("shortName") or home_team.get("title") or
+                            home_team.get("participant_name") or ""),
+        "away_team_id":    away_team.get("team_id", "") or away_team.get("id", ""),
+        "away_team_name":  (away_team.get("name") or away_team.get("short_name") or
+                            away_team.get("shortName") or away_team.get("title") or
+                            away_team.get("participant_name") or ""),
         "home_score":      scores.get("home"),
         "away_score":      scores.get("away"),
         "venue":           (details.get("venue") or {}).get("name", ""),

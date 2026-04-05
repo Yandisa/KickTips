@@ -4,20 +4,30 @@
 {% block content %}
 
 <!-- HERO -->
-<div style="padding: 32px 0 40px; border-bottom: 1px solid var(--border); margin-bottom: 36px;">
-  <div class="page-eyebrow">Automated · Transparent · Free</div>
+<div style="padding: 48px 0 52px; border-bottom: 1px solid var(--border); margin-bottom: 44px; position: relative; overflow: hidden;">
+
+  <!-- accent bar -->
+  <div style="width: 48px; height: 4px; background: var(--accent); margin-bottom: 20px; border-radius: 2px;"></div>
+
+  <div class="page-eyebrow" style="margin-bottom: 12px;">Automated &middot; Transparent &middot; Free</div>
+
   <h1 class="page-title">
-    Free soccer predictions.<br>
-    <em style="font-style:italic; color: var(--muted);">Honestly tracked.</em>
+    Free Soccer<br>Predictions.
   </h1>
-  <p class="page-sub">
-    Multi-market tips across top leagues. Every prediction published.
-    Every result recorded. No subscriptions. No hype.
+
+  <p class="page-sub" style="margin-top: 12px;">
+    Multi-market tips across top leagues. Every prediction published,
+    every result recorded. No subscriptions. No hype. No excuses.
   </p>
+
+  <div style="margin-top: 28px; display: flex; gap: 10px; flex-wrap: wrap;">
+    <a href="{% url 'matches' %}" class="btn btn-accent">Today's Matches</a>
+    <a href="{% url 'record' %}" class="btn btn-ghost">Our Record</a>
+  </div>
 </div>
 
 <!-- STATS -->
-<div class="stat-row" style="margin-bottom: 44px;">
+<div class="stat-row" style="margin-bottom: 52px;">
   <div class="stat-cell">
     <div class="val accent">{{ alltime.win_rate }}%</div>
     <div class="lbl">Win rate</div>
@@ -36,35 +46,39 @@
   </div>
 </div>
 
-<!-- TODAY'S MATCHES -->
-<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:12px; flex-wrap:wrap;">
-  <div class="section-label" style="border:none; padding:0; margin:0;">
-    Today's predictions &mdash; {{ today|date:"l j F Y" }}
+<!-- TODAY'S MATCHES HEADER -->
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap;">
+  <div>
+    <div class="section-label" style="border:none; padding:0; margin-bottom:4px;">
+      Today's Predictions
+    </div>
+    <div style="font-family:var(--mono); font-size:12px; color:var(--muted); letter-spacing:0.08em; font-weight:600;">
+      {{ today|date:"l j F Y"|upper }}
+    </div>
   </div>
-  <a href="{% url 'matches' %}" class="btn btn-ghost" style="font-size:10px; padding:6px 14px;">
-    All matches &rarr;
-  </a>
+  <a href="{% url 'matches' %}" class="btn btn-ghost" style="font-size:11px; padding:7px 16px;">All Matches</a>
 </div>
 
 {% if top_matches %}
-  <div>
+  <div style="border-top: 1px solid var(--border);">
     {% for fixture in top_matches %}
       <details class="accordion">
         <summary>
-          <div style="display:flex; flex-direction:column; gap:3px; flex:1; min-width:0;">
-            <div style="font-size:14px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:0;">
+            <div style="font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:0.01em;">
               {{ fixture.home_team.name }}
-              <span style="color:var(--dim); font-weight:400; margin:0 6px;">vs</span>
+              <span style="color:var(--dim); font-weight:300; margin:0 7px; font-style:italic;">vs</span>
               {{ fixture.away_team.name }}
             </div>
-            <div style="font-size:11px; color:var(--muted);">
-              {{ fixture.league.name }}&ensp;&middot;&ensp;{{ fixture.kickoff|date:"H:i" }}&ensp;&middot;&ensp;{{ fixture.prediction_count }} tip{{ fixture.prediction_count|pluralize }}
+            <div style="font-family:var(--mono); font-size:10.5px; color:var(--muted); font-weight:600; letter-spacing:0.08em;">
+              {{ fixture.league.name|upper }}&ensp;&middot;&ensp;{{ fixture.kickoff|date:"H:i" }}&ensp;&middot;&ensp;{{ fixture.prediction_count }} tip{{ fixture.prediction_count|pluralize }}
             </div>
           </div>
-          <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
-            {% if fixture.best_prediction %}
+
+          {% if fixture.best_prediction %}
+            <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
               <div style="text-align:right;">
-                <div style="font-family:var(--mono); font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:3px;">
+                <div style="font-family:var(--mono); font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; font-weight:600;">
                   {% with p=fixture.best_prediction %}
                     {% if p.market == "ou_goals" %}Goals
                     {% elif p.market == "dc" %}DC
@@ -76,20 +90,20 @@
                 </div>
                 <span class="tip-chip">{{ fixture.best_prediction.tip }}</span>
               </div>
-              <div style="text-align:right; min-width:34px;">
-                <span style="font-family:var(--mono); font-size:15px; color:var(--accent); font-weight:500; line-height:1;">
+              <div style="text-align:right; min-width:38px;">
+                <span style="font-family:var(--display); font-size:1.5rem; color:var(--accent); line-height:1; letter-spacing:0.02em;">
                   {{ fixture.best_prediction.confidence|floatformat:0 }}%
                 </span>
               </div>
-            {% endif %}
-            <span class="caret">&#9656;</span>
-          </div>
+            </div>
+          {% endif %}
+          <span class="caret">&#9656;</span>
         </summary>
 
         <div class="accordion-body">
           {% for pred in fixture.published_predictions %}
-            <div style="display:grid; grid-template-columns:1fr auto; gap:14px; align-items:start;
-                        padding: {% if not forloop.first %}14px{% else %}4px{% endif %} 0 14px;
+            <div style="display:grid; grid-template-columns:1fr auto; gap:16px; align-items:start;
+                        padding: {% if not forloop.first %}16px{% else %}4px{% endif %} 0 16px;
                         {% if not forloop.last %}border-bottom:1px solid var(--border);{% endif %}">
               <div>
                 <div class="pred-market">
@@ -100,31 +114,31 @@
                   {% elif pred.market == "1x2" %}Match Result
                   {% else %}{{ pred.market }}{% endif %}
                 </div>
-                <div class="pred-tip" style="font-size:1.15rem; margin-bottom:6px;">{{ pred.tip }}</div>
+                <div class="pred-tip" style="font-size:1.4rem; margin-bottom:8px;">{{ pred.tip }}</div>
                 {% if pred.reasoning %}
-                  <p style="font-size:12.5px; color:var(--muted); line-height:1.65;">
+                  <p style="font-size:13px; color:var(--muted); line-height:1.65; font-weight:300;">
                     {{ pred.reasoning|truncatewords:28 }}
                   </p>
                 {% endif %}
               </div>
               <div style="text-align:right; flex-shrink:0;">
-                <div style="font-family:var(--mono); font-size:1.3rem; color:var(--accent); line-height:1;">
+                <div style="font-family:var(--display); font-size:1.8rem; color:var(--accent); line-height:1; letter-spacing:0.02em;">
                   {{ pred.confidence|floatformat:0 }}%
                 </div>
-                <div style="font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; margin-top:2px;">conf</div>
-                <div class="conf-track" style="width:64px; margin-top:8px; margin-left:auto;">
+                <div style="font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; margin-top:3px; font-weight:600;">conf</div>
+                <div class="conf-track" style="width:60px; margin-top:8px; margin-left:auto;">
                   <div class="conf-fill" style="width:{{ pred.confidence|floatformat:0 }}%;"></div>
                 </div>
-                <div style="margin-top:8px;">
+                <div style="margin-top:10px;">
                   <span class="result-pill pending">pending</span>
                 </div>
               </div>
             </div>
           {% endfor %}
 
-          <div style="padding-top:10px;">
+          <div style="padding-top:12px;">
             <a href="{% url 'match_detail' fixture.pk %}"
-               style="font-family:var(--mono); font-size:11px; letter-spacing:0.06em; color:var(--muted); text-transform:uppercase; transition:color 0.15s;"
+               style="font-family:var(--mono); font-size:11px; letter-spacing:0.1em; color:var(--muted); text-transform:uppercase; font-weight:600; transition:color 0.15s;"
                onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
               Full analysis &rarr;
             </a>
@@ -135,21 +149,26 @@
   </div>
 
 {% else %}
-  <div style="padding:48px 0; text-align:center; border-top:1px solid var(--border); border-bottom:1px solid var(--border);">
-    <div style="font-family:var(--mono); font-size:11px; letter-spacing:0.1em; color:var(--muted); text-transform:uppercase; margin-bottom:10px;">
+  <div style="padding:64px 0; text-align:center; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface);">
+    <div style="font-family:var(--mono); font-size:11px; letter-spacing:0.14em; color:var(--muted); text-transform:uppercase; font-weight:600; margin-bottom:10px;">
       No predictions yet
     </div>
     <p style="color:var(--dim); font-size:13px;">Today's tips are being prepared. Check back soon.</p>
   </div>
 {% endif %}
 
-<!-- SUPPORT -->
-<div style="margin-top:52px; padding-top:32px; border-top:1px solid var(--border);
-            display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;">
-  <div>
+<!-- SUPPORT STRIP -->
+<div style="margin-top:60px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:28px 24px;
+            display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap; position:relative; overflow:hidden;">
+
+  <!-- left accent -->
+  <div style="position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent);"></div>
+
+  <div style="padding-left:8px;">
     <div class="page-eyebrow" style="margin-bottom:6px;">Support KickTips</div>
-    <p style="font-size:13px; color:var(--muted); max-width:380px; line-height:1.65;">
-      KickTips is entirely free. If the predictions help, a small donation keeps the platform running daily.
+    <p style="font-size:14px; color:var(--muted); max-width:380px; line-height:1.65; font-weight:300;">
+      Entirely free, always. If the predictions help, a small donation keeps
+      the platform running daily.
     </p>
   </div>
   <div style="display:flex; gap:10px; flex-wrap:wrap;">

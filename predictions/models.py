@@ -35,6 +35,11 @@ class Prediction(models.Model):
     confidence     = models.FloatField()
     reasoning      = models.TextField()
 
+    # Bookmaker odds stored at prediction time — used for acca combined odds
+    # and for displaying real value to the punter.
+    bookie_decimal = models.FloatField(null=True, blank=True)
+    edge           = models.FloatField(null=True, blank=True)   # our_prob - bookie_implied
+
     published      = models.BooleanField(default=False)
     publish_rank   = models.IntegerField(null=True, blank=True)
     skipped_reason = models.CharField(max_length=50, choices=SKIP_REASONS, blank=True)

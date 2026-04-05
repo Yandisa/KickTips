@@ -32,11 +32,12 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # ── Thresholds ────────────────────────────────────────────────────────────────
-MIN_EDGE          = 0.02    # Min edge over bookmaker implied prob to publish
-MIN_GAMES         = 5       # Min games for a team stat to be trusted
-MIN_BOOKIE_DECIMAL = 1.50   # Below this the bookmaker implies >67% — winning pays almost nothing
-MIN_FAIR_DECIMAL  = 1.30    # Below this our own model implies >77% — skip
-MIN_CONFIDENCE    = 60.0    # Never publish below this
+MIN_EDGE           = 0.03    # Min edge over bookmaker implied prob (raised from 0.02)
+MIN_GAMES          = 6       # Min games for a team stat to be trusted (raised from 5)
+MIN_BOOKIE_DECIMAL = 1.50    # Below this the bookmaker implies >67% — skip
+MIN_FAIR_DECIMAL   = 1.30    # Below this our model implies >77% — skip
+MIN_CONFIDENCE     = 63.0    # Never publish below this (raised from 60)
+REQUIRE_ODDS       = True    # Never publish without real bookmaker odds — no odds = no edge
 
 # Corners-specific floor — corners markets are sharp and low-liquidity.
 # A corners tip at 1.40 decimal odds returns R0.40 per R1 — not worth the risk.
@@ -166,7 +167,11 @@ def _value_check(model_prob: float, bookie_decimal: Optional[float]) -> dict:
                 "fair_decimal": fair_decimal, "bookie_implied": None}
 
     if bookie_decimal is None:
-        # No odds — publish on model alone with confidence penalty
+        # No odds — cannot validate edge against bookmaker, do not publish
+        if REQUIRE_ODDS:
+            return {"has_value": False, "edge": None, "bookie_decimal": None,
+                    "fair_decimal": fair_decimal, "bookie_implied": None}
+        # REQUIRE_ODDS=False fallback: publish with confidence penalty
         return {"has_value": True, "edge": None, "bookie_decimal": None,
                 "fair_decimal": fair_decimal, "bookie_implied": None}
 
@@ -231,11 +236,8 @@ def _skip(reason): return {"skip_reason": reason, "tip": "", "confidence": 0}
 def predict_1x2(home, away, h2h_results, league, odds=None):
     try:
         def _has_data(t):
-            return (
-                (getattr(t, "games_played", 0) or 0) >= MIN_GAMES or
-                (getattr(t, "rw_home_goals_for", 0) or 0) > 0 or
-                (getattr(t, "home_avg_goals_for", 1.5) or 1.5) != 1.5
-            )
+            # Require real match history — loose fallbacks caused bad predictions
+            return (getattr(t, "games_played", 0) or 0) >= MIN_GAMES
         if not (_has_data(home) and _has_data(away)):
             return _skip("insufficient_data")
 
@@ -295,11 +297,8 @@ def predict_1x2(home, away, h2h_results, league, odds=None):
 def predict_goals(home, away, h2h_results, league, odds=None):
     try:
         def _has_data(t):
-            return (
-                (getattr(t, "games_played", 0) or 0) >= MIN_GAMES or
-                (getattr(t, "rw_home_goals_for", 0) or 0) > 0 or
-                (getattr(t, "home_avg_goals_for", 1.5) or 1.5) != 1.5
-            )
+            # Require real match history — loose fallbacks caused bad predictions
+            return (getattr(t, "games_played", 0) or 0) >= MIN_GAMES
         if not (_has_data(home) and _has_data(away)):
             return _skip("insufficient_data")
 
@@ -365,11 +364,8 @@ def predict_goals(home, away, h2h_results, league, odds=None):
 def predict_btts(home, away, h2h_results, league, odds=None):
     try:
         def _has_data(t):
-            return (
-                (getattr(t, "games_played", 0) or 0) >= MIN_GAMES or
-                (getattr(t, "rw_home_goals_for", 0) or 0) > 0 or
-                (getattr(t, "home_avg_goals_for", 1.5) or 1.5) != 1.5
-            )
+            # Require real match history — loose fallbacks caused bad predictions
+            return (getattr(t, "games_played", 0) or 0) >= MIN_GAMES
         if not (_has_data(home) and _has_data(away)):
             return _skip("insufficient_data")
 
@@ -431,11 +427,8 @@ def predict_btts(home, away, h2h_results, league, odds=None):
 def predict_double_chance(home, away, h2h_results, league, odds=None):
     try:
         def _has_data(t):
-            return (
-                (getattr(t, "games_played", 0) or 0) >= MIN_GAMES or
-                (getattr(t, "rw_home_goals_for", 0) or 0) > 0 or
-                (getattr(t, "home_avg_goals_for", 1.5) or 1.5) != 1.5
-            )
+            # Require real match history — loose fallbacks caused bad predictions
+            return (getattr(t, "games_played", 0) or 0) >= MIN_GAMES
         if not (_has_data(home) and _has_data(away)):
             return _skip("insufficient_data")
 
@@ -486,11 +479,8 @@ def predict_double_chance(home, away, h2h_results, league, odds=None):
 def predict_corners(home, away, referee, h2h_results, league, odds=None):
     try:
         def _has_data(t):
-            return (
-                (getattr(t, "games_played", 0) or 0) >= MIN_GAMES or
-                (getattr(t, "rw_home_goals_for", 0) or 0) > 0 or
-                (getattr(t, "home_avg_goals_for", 1.5) or 1.5) != 1.5
-            )
+            # Require real match history — loose fallbacks caused bad predictions
+            return (getattr(t, "games_played", 0) or 0) >= MIN_GAMES
         if not (_has_data(home) and _has_data(away)):
             return _skip("insufficient_data")
 

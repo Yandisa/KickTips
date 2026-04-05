@@ -32,11 +32,11 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # ── Thresholds ────────────────────────────────────────────────────────────────
-MIN_EDGE           = 0.03    # Min edge over bookmaker implied prob (raised from 0.02)
-MIN_GAMES          = 6       # Min games for a team stat to be trusted (raised from 5)
+MIN_EDGE           = 0.05    # Min edge over bookmaker implied prob (raised from 0.03 — tighter quality gate)
+MIN_GAMES          = 6       # Min games for a team stat to be trusted
 MIN_BOOKIE_DECIMAL = 1.50    # Below this the bookmaker implies >67% — skip
 MIN_FAIR_DECIMAL   = 1.30    # Below this our model implies >77% — skip
-MIN_CONFIDENCE     = 63.0    # Never publish below this (raised from 60)
+MIN_CONFIDENCE     = 65.0    # Never publish below this (raised from 63 — fewer but better tips)
 REQUIRE_ODDS       = True    # Never publish without real bookmaker odds — no odds = no edge
 
 # Corners-specific floor — corners markets are sharp and low-liquidity.
@@ -128,31 +128,43 @@ def _build_confidence(model_prob: float, bookie_decimal: Optional[float], edge: 
     """
     Build confidence score from model probability + bookmaker edge.
 
-    Confidence = model_prob% adjusted by:
-      + edge bonus: each 1% of edge adds 0.5pp confidence (capped at +20pp)
-      + no-odds penalty: -15pp if no bookmaker odds available
-      + stays between 0 and 88
+    Calibration fix (v4):
+      The previous formula inflated confidence by adding up to +20pp edge bonus
+      on top of model_prob%, causing the 75-80%+ bands to publish at confidence
+      levels they could not actually achieve.
+
+      New formula:
+        1. Start from model_prob% (0-100 scale)
+        2. Add a SMALL edge bonus: each 1% of edge adds 0.2pp (cap +6pp)
+           Edge signals value but cannot substitute for model accuracy.
+        3. Apply Platt-style shrinkage toward a 55% prior:
+           conf = 0.70 * raw + 0.30 * 55
+           Pulls overconfident scores toward reality.
+        4. No-odds penalty: -15pp before shrinkage if no bookmaker odds.
+        5. Clamp to [0, 82] — never claim more than 82% certainty.
 
     Examples:
-      model=70%, bookie=2.10 (47.6% implied), edge=22.4%
-        → base=70, edge_bonus=min(22.4*0.5, 20)=11.2 → conf=81.2%
-      model=65%, bookie=1.90 (52.6% implied), edge=12.4%
-        → base=65, edge_bonus=6.2 → conf=71.2%
-      model=70%, no odds
-        → base=70, -15pp → conf=55% (below MIN, would be skipped)
+      model=70%, edge=10%  -> raw=72 -> shrunk=66.9%
+      model=75%, edge=15%  -> raw=78 -> shrunk=71.1%
+      model=65%, no odds   -> raw=50 -> shrunk=49.5% (below MIN, skipped)
     """
     base = model_prob * 100
 
     if edge is not None:
-        edge_bonus = min(edge * 100 * 0.5, 20.0)
-        conf = base + edge_bonus
+        edge_bonus = min(edge * 100 * 0.20, 6.0)   # was 0.5/cap 20 — massively reduced
+        raw = base + edge_bonus
         has_odds = True
     else:
-        conf = base - NO_ODDS_PENALTY
+        raw = base - NO_ODDS_PENALTY
         has_odds = False
 
+    # Platt-style shrinkage toward 55% prior — prevents overconfidence
+    PRIOR = 55.0
+    SHRINK = 0.30
+    conf = (1 - SHRINK) * raw + SHRINK * PRIOR
+
     return {
-        "confidence": round(min(max(conf, 0), 88), 1),
+        "confidence": round(min(max(conf, 0), 82), 1),
         "has_odds":   has_odds,
     }
 
@@ -273,7 +285,7 @@ def predict_1x2(home, away, h2h_results, league, odds=None):
 
         cb = _build_confidence(best_prob, bookie_dec, vc["edge"])
         confidence = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
-        confidence = round(max(0, min(confidence, 88)), 1)
+        confidence = round(max(0, min(confidence, 82)), 1)
 
         if confidence < MIN_CONFIDENCE:
             return _skip("low_confidence")
@@ -338,7 +350,7 @@ def predict_goals(home, away, h2h_results, league, odds=None):
 
             cb = _build_confidence(model_prob, bookie_dec, vc["edge"])
             conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
-            conf = round(max(0, min(conf, 88)), 1)
+            conf = round(max(0, min(conf, 82)), 1)
 
             if conf < MIN_CONFIDENCE:
                 continue
@@ -405,7 +417,7 @@ def predict_btts(home, away, h2h_results, league, odds=None):
 
         cb = _build_confidence(model_prob, bookie_dec, vc["edge"])
         conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
-        conf = round(max(0, min(conf, 88)), 1)
+        conf = round(max(0, min(conf, 82)), 1)
 
         if conf < MIN_CONFIDENCE:
             return _skip("low_confidence")
@@ -445,19 +457,27 @@ def predict_double_chance(home, away, h2h_results, league, odds=None):
         }
         tip, model_prob = max(combos.items(), key=lambda x: x[1])
 
-        # DC only useful if clearly dominant — needs strong underlying probability
-        if model_prob < 0.68:
+        # DC only useful if clearly dominant — raised from 0.68 to 0.72
+        if model_prob < 0.72:
             return _skip("low_confidence")
 
-        bookie_dec = None  # DC odds rarely in API — publish on model
+        # Try to get DC odds from bookmaker; require higher floor without them.
+        dc_odds_map = {"Home or Draw": "1x", "Away or Draw": "x2", "Home or Away": "12"}
+        odds_key = dc_odds_map.get(tip)
+        bookie_dec = (odds.get("dc", {}).get(odds_key)) if (odds and odds_key) else None
+
+        # Without bookie odds we can't validate edge — require very high model confidence
+        if bookie_dec is None and model_prob < 0.76:
+            return _skip("no_value")
+
         vc = _value_check(model_prob, bookie_dec)
         if not vc["has_value"]:
             return _skip("no_value")
 
         cb = _build_confidence(model_prob, bookie_dec, vc["edge"])
-        # DC is by nature a safer market — cap edge bonus since there's no real bookie edge check
+        # Cap DC at 78 — it is a safety market, not a high-confidence call
         conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
-        conf = round(max(0, min(conf, 82)), 1)
+        conf = round(max(0, min(conf, 78)), 1)
 
         if conf < MIN_CONFIDENCE:
             return _skip("low_confidence")
@@ -465,7 +485,7 @@ def predict_double_chance(home, away, h2h_results, league, odds=None):
         return {
             "tip": tip, "confidence": conf, "skip_reason": "",
             "expected_value": round(model_prob * 100, 1),
-            "bookie_decimal": None, "edge": None,
+            "bookie_decimal": vc["bookie_decimal"], "edge": vc["edge"],
         }
     except Exception as exc:
         logger.error("DC error: %s", exc)
@@ -559,7 +579,7 @@ def predict_corners(home, away, referee, h2h_results, league, odds=None):
 
             cb = _build_confidence(model_prob, bookie_dec, vc["edge"])
             conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
-            conf = round(max(0, min(conf, 84)), 1)
+            conf = round(max(0, min(conf, 82)), 1)
 
             if conf < MIN_CONFIDENCE:
                 continue

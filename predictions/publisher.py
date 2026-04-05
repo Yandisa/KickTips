@@ -18,7 +18,7 @@ from predictions.models import Prediction
 logger = logging.getLogger(__name__)
 
 MAX_PER_FIXTURE = 2
-CONFIDENCE_THRESHOLD = 0.0
+CONFIDENCE_THRESHOLD = 65.0  # Safety net — matches MIN_CONFIDENCE in engine
 
 MARKET_ROTATION = ["ou_goals", "btts", "1x2", "corners", "dc"]
 

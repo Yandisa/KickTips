@@ -417,6 +417,10 @@ def donate(request):
         "yoco":        settings.YOCO_LINK,
     })
 
+def winners(request):
+    return render(request, 'website/winners.html')
+
+
 
 def accumulators(request):
     """

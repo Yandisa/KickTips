@@ -113,11 +113,43 @@ def _derive_lambdas(home, away, league):
     mu_h = (hgf / h_avg) * (aga / h_avg) * h_avg if h_avg > 0 else 1.4
     mu_a = (agf / a_avg) * (hga / a_avg) * a_avg if a_avg > 0 else 1.1
 
+    # xG blend — only when real xG data is available
     hxg = g(home, "home_xg_for", 0)
     axg = g(away, "away_xg_for", 0)
     if hxg > 0 and axg > 0:
         mu_h = mu_h * 0.5 + hxg * 0.5
         mu_a = mu_a * 0.5 + axg * 0.5
+
+    # O/U 2.5 rate blend — use league standing O/U rates when available.
+    # These represent actual match history at home/away and are more reliable
+    # than pure Poisson when teams have consistent style (e.g. low-block sides).
+    h_ou25 = g(home, "home_ou25_over_rate", 0)
+    a_ou25 = g(away, "away_ou25_over_rate", 0)
+    if h_ou25 > 0 and a_ou25 > 0:
+        # Derive an implied mu blend: if both teams go Over 2.5 70% of the time,
+        # the implied match lambda is higher. Scale: 50% rate ≈ 2.5 expected goals.
+        combined_rate = (h_ou25 + a_ou25) / 2
+        implied_mu_total = max(1.5, min(combined_rate * 5.0, 5.5))  # rough mapping
+        current_total = mu_h + mu_a
+        if current_total > 0:
+            scale = implied_mu_total / current_total
+            scale = max(0.88, min(scale, 1.12))  # cap at ±12% adjustment
+            mu_h *= scale
+            mu_a *= scale
+
+    # League position penalty/bonus — top-6 home team vs bottom-6 away team
+    # gets a small attacking boost; reverse degrades the home side slightly.
+    h_pos = getattr(home, "league_position", None)
+    a_pos = getattr(away, "league_position", None)
+    league_size = 18  # safe default; actual size doesn't matter much here
+    if h_pos and a_pos:
+        h_rank_norm = h_pos / league_size   # 0 = top, 1 = bottom
+        a_rank_norm = a_pos / league_size
+        # Home team quality vs away team quality
+        quality_diff = a_rank_norm - h_rank_norm  # positive = home team higher ranked
+        adjustment = max(-0.06, min(quality_diff * 0.10, 0.06))
+        mu_h = mu_h * (1 + adjustment)
+        mu_a = mu_a * (1 - adjustment)
 
     return max(0.3, min(mu_h, 5.0)), max(0.3, min(mu_a, 5.0))
 
@@ -263,13 +295,17 @@ def predict_1x2(home, away, h2h_results, league, odds=None):
         hp *= _form_factor(getattr(home, "form_home", "") or "")
         ap *= _form_factor(getattr(away, "form_away", "") or "")
 
-        # H2H
+        # H2H — apply proportional weighting, not a hard 65% threshold
         if h2h_results:
             n = len(h2h_results)
-            hw = sum(1 for r in h2h_results if r.get("winner") == "home") / n
-            aw = sum(1 for r in h2h_results if r.get("winner") == "away") / n
-            if hw >= 0.65: hp *= 1.05
-            if aw >= 0.65: ap *= 1.05
+            hw_rate = sum(1 for r in h2h_results if r.get("winner") == "home") / n
+            aw_rate = sum(1 for r in h2h_results if r.get("winner") == "away") / n
+            dr_rate = 1 - hw_rate - aw_rate
+            # Blend model probs with H2H rates (20% H2H weight, increases with sample)
+            h2h_weight = min(n / 20, 0.25)  # max 25% H2H influence at n=20
+            hp = hp * (1 - h2h_weight) + hw_rate * h2h_weight
+            dp = dp * (1 - h2h_weight) + dr_rate * h2h_weight
+            ap = ap * (1 - h2h_weight) + aw_rate * h2h_weight
 
         total = hp + dp + ap
         hp /= total; dp /= total; ap /= total
@@ -509,18 +545,27 @@ def predict_corners(home, away, referee, h2h_results, league, odds=None):
         acf = getattr(away, "away_avg_corners_for",     0) or 0
         aca = getattr(away, "away_avg_corners_against", 0) or 0
 
-        # Skip if all four values are still the model defaults — real corner
-        # data has not been fetched yet.  Use an exact tuple comparison so a
-        # team that legitimately averages e.g. 5.0 corners for at home is not
-        # incorrectly skipped (the old set-containment check did exactly that).
-        _CORNER_DEFAULTS = (5.0, 4.5, 4.5, 5.2)   # (hcf, hca, acf, aca)
-        if (round(hcf,1), round(hca,1), round(acf,1), round(aca,1)) == _CORNER_DEFAULTS:
+        # Skip only if BOTH teams have ALL four corner values still at exact defaults.
+        # A team that had corner data fetched will have at least one value differ.
+        # We check each team independently — if either has real data, proceed.
+        _HOME_DEFAULTS = (5.0, 4.5)  # (hcf, hca)
+        _AWAY_DEFAULTS = (4.5, 5.2)  # (acf, aca)
+        home_corners_real = (round(hcf,1), round(hca,1)) != _HOME_DEFAULTS
+        away_corners_real = (round(acf,1), round(aca,1)) != _AWAY_DEFAULTS
+
+        if not home_corners_real and not away_corners_real:
             return _skip("insufficient_data")
 
-        # Require both teams to have real corner data from enough matches.
-        # games_played is used as a proxy — corner data is fetched alongside
-        # team results so if games_played >= MIN_CORNER_DATA_PTS we know
-        # the corner averages above are real, not model defaults.
+        # If only one side has real data, use league avg for the other side
+        league_avg_corners = getattr(league, "avg_corners", 10.0) or 10.0
+        if not home_corners_real:
+            hcf = league_avg_corners * 0.52  # home teams tend to win more corners
+            hca = league_avg_corners * 0.48
+        if not away_corners_real:
+            acf = league_avg_corners * 0.45
+            aca = league_avg_corners * 0.55
+
+        # Require minimum games played (loose guard — corner data itself is the main gate)
         home_gp = getattr(home, "games_played", 0) or 0
         away_gp = getattr(away, "games_played", 0) or 0
         if home_gp < MIN_CORNER_DATA_PTS or away_gp < MIN_CORNER_DATA_PTS:

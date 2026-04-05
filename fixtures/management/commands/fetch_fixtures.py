@@ -11,21 +11,23 @@ What's new vs v1:
 
 import logging
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Optional
 
 from django.core.management.base import BaseCommand
 from django.db.models import Count
 from django.utils import timezone
 
-from fixtures.models import League, Team, Fixture, Referee
+from fixtures.models import Fixture, League, Referee, Team
 from fixtures import api_client
 
 logger = logging.getLogger(__name__)
 
-MAX_TEAM_STAT_UPDATES = 60
-MAX_ENRICHMENT_PER_RUN = 30
-ENRICHMENT_DELAY = 2
+MAX_TEAM_STAT_UPDATES = 20
+MAX_ENRICHMENT_PER_RUN = 10
+ENRICHMENT_DELAY = 1.5
+TEAM_RESULTS_DELAY = 1.0
+MATCH_STATS_DELAY = 1.0
 
 
 class Command(BaseCommand):
@@ -92,16 +94,22 @@ class Command(BaseCommand):
         unique_teams = self._deduplicate_teams(teams_to_update)
 
         qualified_teams = [
-            (tid, tname, lg) for tid, tname, lg in unique_teams
+            (tid, tname, lg)
+            for tid, tname, lg in unique_teams
             if self._league_has_data(lg)
         ]
+        limited_teams = qualified_teams[:MAX_TEAM_STAT_UPDATES]
         skipped_teams = len(unique_teams) - len(qualified_teams)
+        deferred_teams = max(0, len(qualified_teams) - len(limited_teams))
+
         self.stdout.write(
-            f"Updating stats for {len(qualified_teams)} teams "
-            f"({skipped_teams} skipped — leagues lack finished history)"
+            f"Updating stats for {len(limited_teams)} teams "
+            f"({skipped_teams} skipped — leagues lack finished history, "
+            f"{deferred_teams} deferred by rate limit guard)"
         )
+
         ok = fail = 0
-        for team_id, team_name, league in qualified_teams:
+        for team_id, team_name, league in limited_teams:
             if self._update_team_stats(team_id, team_name, league):
                 ok += 1
             else:
@@ -109,15 +117,20 @@ class Command(BaseCommand):
         self.stdout.write(f"Stats: {ok} OK, {fail} failed")
 
         qualified_enrichments = [
-            (fixture, item) for fixture, item in fixtures_to_enrich
+            (fixture, item)
+            for fixture, item in fixtures_to_enrich
             if (fixture.venue or "").startswith("fs:")
             and self._league_has_data(fixture.league)
         ]
+        limited_enrichments = qualified_enrichments[:MAX_ENRICHMENT_PER_RUN]
+
         self.stdout.write(
-            f"Enriching {len(qualified_enrichments)} fixtures (of {len(fixtures_to_enrich)} total)..."
+            f"Enriching {len(limited_enrichments)} fixtures "
+            f"(of {len(fixtures_to_enrich)} total, {len(qualified_enrichments)} qualified)..."
         )
+
         ef_ok = ef_fail = 0
-        for fixture, item in qualified_enrichments[:MAX_ENRICHMENT_PER_RUN]:
+        for fixture, item in limited_enrichments:
             try:
                 self._enrich_fixture(fixture, item)
                 ef_ok += 1
@@ -297,13 +310,13 @@ class Command(BaseCommand):
 
         try:
             p1 = api_client.fetch_team_results(team_id, page=1)
-            time.sleep(0.5)
+            time.sleep(TEAM_RESULTS_DELAY)
             p2 = api_client.fetch_team_results(team_id, page=2)
-            time.sleep(0.5)
+            time.sleep(TEAM_RESULTS_DELAY)
             results = p1 + p2
 
             if results and len(results) >= 5:
-                corner_stat_matches = 8
+                corner_stat_matches = 3
                 enriched = 0
                 for r in results[:corner_stat_matches]:
                     mid = r.get("match_id")
@@ -317,7 +330,7 @@ class Command(BaseCommand):
                             enriched += 1
                     except Exception:
                         pass
-                    time.sleep(0.4)
+                    time.sleep(MATCH_STATS_DELAY)
 
                 if enriched:
                     logger.info(
@@ -353,7 +366,10 @@ class Command(BaseCommand):
         )
         removed = 0
         for group in groups:
-            rows = Fixture.objects.filter(kickoff__date=today_str, api_id=group["api_id"]).order_by("id")
+            rows = Fixture.objects.filter(
+                kickoff__date=today_str,
+                api_id=group["api_id"],
+            ).order_by("id")
             keep = rows.first()
             extras = rows.exclude(id=keep.id)
             n = extras.count()
@@ -406,7 +422,13 @@ class Command(BaseCommand):
             if existing_by_teams.exists():
                 keep = existing_by_teams.first()
                 existing_by_teams.exclude(id=keep.id).delete()
-                status_rank = {"finished": 4, "live": 3, "scheduled": 2, "postponed": 1, "cancelled": 0}
+                status_rank = {
+                    "finished": 4,
+                    "live": 3,
+                    "scheduled": 2,
+                    "postponed": 1,
+                    "cancelled": 0,
+                }
                 new_status = item["status"]
                 if status_rank.get(new_status, 0) >= status_rank.get(keep.status, 0):
                     keep.status = new_status

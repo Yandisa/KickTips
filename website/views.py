@@ -416,20 +416,28 @@ def accumulators(request):
         .order_by("-confidence")
     )
 
-    # Each tier has its own confidence floor and independent ranked pool.
-    # _build_acca enforces market and league variety within each pool —
-    # so Shaya Zonke won't have 5 BTTS legs from the same league.
-    faka_legs  = _ranked_unique(all_preds, min_conf=FAKA_MIN_CONF)
-    shaya_legs = _ranked_unique(all_preds, min_conf=SHAYA_MIN_CONF)
-    istim_legs = _ranked_unique(all_preds, min_conf=ISTIMELA_MIN_CONF)
+    # Build one master ranked pool (all qualifying tips, best first).
+    # Then slice into THREE NON-OVERLAPPING bands so each acca is
+    # fully independent — if a Faka leg loses, Shaya and Istimela
+    # are completely unaffected (different matches entirely).
+    #
+    #   Faka Yonke  → positions 1-5   (highest confidence)
+    #   Shaya Zonke → positions 6-13  (next tier)
+    #   Istimela    → positions 14+   (remaining)
 
-    total_available = len(istim_legs)
+    all_legs        = _ranked_unique(all_preds, min_conf=ISTIMELA_MIN_CONF)
+    total_available = len(all_legs)
 
-    # Size ranges: Faka tight (4-5), Shaya medium (5-8), Istimela long (8-12).
-    # Reduced from previous maximums — a focused 8-leg acca beats a padded 15-leg one.
-    faka_yonke  = _build_acca(faka_legs,  size_min=4, size_max=5)
-    shaya_zonke = _build_acca(shaya_legs, size_min=5, size_max=8)
-    istimela    = _build_acca(istim_legs, size_min=8, size_max=12)
+    FAKA_SIZE  = 5
+    SHAYA_SIZE = 8
+
+    faka_pool  = all_legs[:FAKA_SIZE]
+    shaya_pool = all_legs[FAKA_SIZE:FAKA_SIZE + SHAYA_SIZE]
+    istim_pool = all_legs[FAKA_SIZE + SHAYA_SIZE:]
+
+    faka_yonke  = _build_acca(faka_pool,  size_min=4, size_max=FAKA_SIZE)
+    shaya_zonke = _build_acca(shaya_pool, size_min=4, size_max=SHAYA_SIZE)
+    istimela    = _build_acca(istim_pool, size_min=4, size_max=12)
 
     return render(request, "website/accumulators.html", {
         "today":           today,

@@ -64,7 +64,9 @@ class PerformanceRecord(models.Model):
             'total_won':       tw,
             'total_lost':      agg['tl'] or 0,
             'total_void':      agg['tv'] or 0,
-            'win_rate':        round(tw / tp * 100, 1) if tp else 0,
+            # Win rate = won / (won + lost) — excludes pending and void
+            'win_rate': round(tw / (tw + (agg['tl'] or 0)) * 100, 1)
+                        if (tw + (agg['tl'] or 0)) > 0 else 0,
             'markets': {
                 '1X2':     {'won': agg['w1'] or 0, 'total': agg['t1'] or 0},
                 'Double Chance': {'won': agg['w2'] or 0, 'total': agg['t2'] or 0},

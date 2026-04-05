@@ -61,37 +61,49 @@ def _ranked_unique(predictions, min_conf=0.0):
     return sorted(by_match.values(), key=_score_prediction, reverse=True)
 
 
-def _build_acca(legs, size_min, size_max):
+def _build_acca(legs, size_min, size_max, fallback=None):
     """
     Build an accumulator from a ranked pool of legs, enforcing:
       - Max MAX_SAME_MARKET_PER_ACCA legs of the same market type
       - Max MAX_SAME_LEAGUE_PER_ACCA legs from the same league
       - Between size_min and size_max total legs
-      - Combined odds use real bookmaker decimals where available
 
-    Iterates the full ranked pool and selects qualifying legs in order,
-    so variety is enforced without sacrificing overall confidence.
+    If the primary pool doesn't yield size_min legs after variety filtering,
+    pulls from `fallback` (the full ranked list) to fill up, still respecting
+    variety caps and skipping already-selected fixtures.
     """
-    selected = []
+    selected      = []
     market_counts = {}
     league_counts = {}
+    used_fixtures = set()
 
+    def _try_add(pred):
+        if pred.fixture_id in used_fixtures:
+            return False
+        market    = pred.market
+        league_id = pred.fixture.league_id
+        if market_counts.get(market, 0) >= MAX_SAME_MARKET_PER_ACCA:
+            return False
+        if league_counts.get(league_id, 0) >= MAX_SAME_LEAGUE_PER_ACCA:
+            return False
+        selected.append(pred)
+        market_counts[market]    = market_counts.get(market, 0) + 1
+        league_counts[league_id] = league_counts.get(league_id, 0) + 1
+        used_fixtures.add(pred.fixture_id)
+        return True
+
+    # Primary pool
     for pred in legs:
         if len(selected) >= size_max:
             break
+        _try_add(pred)
 
-        market = pred.market
-        league_id = pred.fixture.league_id
-
-        # Enforce variety caps
-        if market_counts.get(market, 0) >= MAX_SAME_MARKET_PER_ACCA:
-            continue
-        if league_counts.get(league_id, 0) >= MAX_SAME_LEAGUE_PER_ACCA:
-            continue
-
-        selected.append(pred)
-        market_counts[market] = market_counts.get(market, 0) + 1
-        league_counts[league_id] = league_counts.get(league_id, 0) + 1
+    # If short, pull from fallback (full ranked list) to fill gaps
+    if len(selected) < size_min and fallback:
+        for pred in fallback:
+            if len(selected) >= size_max:
+                break
+            _try_add(pred)
 
     if len(selected) < size_min:
         return None
@@ -431,13 +443,17 @@ def accumulators(request):
     FAKA_SIZE  = 5
     SHAYA_SIZE = 8
 
+    # Slice into non-overlapping bands by position — no per-acca confidence
+    # floor needed since ranking already puts highest confidence first.
     faka_pool  = all_legs[:FAKA_SIZE]
     shaya_pool = all_legs[FAKA_SIZE:FAKA_SIZE + SHAYA_SIZE]
     istim_pool = all_legs[FAKA_SIZE + SHAYA_SIZE:]
 
-    faka_yonke  = _build_acca(faka_pool,  size_min=4, size_max=FAKA_SIZE)
-    shaya_zonke = _build_acca(shaya_pool, size_min=4, size_max=SHAYA_SIZE)
-    istimela    = _build_acca(istim_pool, size_min=4, size_max=12)
+    # Pass full list as fallback so small pools can fill to size_min
+    # while still using different fixtures from the other accas.
+    faka_yonke  = _build_acca(faka_pool,  size_min=4, size_max=FAKA_SIZE,  fallback=all_legs)
+    shaya_zonke = _build_acca(shaya_pool, size_min=4, size_max=SHAYA_SIZE, fallback=all_legs)
+    istimela    = _build_acca(istim_pool, size_min=4, size_max=12,          fallback=all_legs)
 
     return render(request, "website/accumulators.html", {
         "today":           today,

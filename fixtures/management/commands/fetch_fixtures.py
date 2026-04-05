@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 MAX_TEAM_STAT_UPDATES = 60
 MAX_ENRICHMENT_PER_RUN = 30
-ENRICHMENT_DELAY = 1.2
+ENRICHMENT_DELAY = 2
 
 
 class Command(BaseCommand):

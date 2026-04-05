@@ -6,82 +6,83 @@
   .acca-grid {
     display: grid;
     grid-template-columns: 1fr;
-    }
-  @media (min-width: 640px) {
+    gap: 16px;
+    margin-bottom: 52px;
+  }
+  @media (min-width: 700px) {
     .acca-grid { grid-template-columns: 1fr 1fr 1fr; }
-    gap: 20px;
-    margin-bottom: 48px;
   }
 
   .acca-card {
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 4px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    background: var(--surface);
+    transition: border-color 0.15s, transform 0.15s;
   }
+  .acca-card:hover { transform: translateY(-2px); }
 
-  .acca-header {
-    padding: 20px 20px 16px;
-    border-bottom: 1px solid var(--border);
-  }
+  .acca-card.faka  { border-top: 3px solid var(--accent); }
+  .acca-card.shaya { border-top: 3px solid var(--accent2); }
+  .acca-card.istim { border-top: 3px solid #f060c8; }
+
+  .acca-header { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); }
 
   .acca-type-label {
-    font-family: var(--mono, monospace);
+    font-family: var(--mono);
     font-size: 10px;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--muted);
-    margin-bottom: 6px;
+    font-weight: 600;
+    margin-bottom: 8px;
   }
 
   .acca-name {
-    font-size: 1.5rem;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
+    font-family: var(--display);
+    font-size: 2rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    line-height: 1;
     margin-bottom: 4px;
+    text-transform: uppercase;
   }
+  .acca-name.faka  { color: var(--accent); }
+  .acca-name.shaya { color: var(--accent2); }
+  .acca-name.istim { color: #f060c8; }
 
-  .acca-name-faka   { color: var(--accent); }
-  .acca-name-shaya  { color: var(--accent2); }
-  .acca-name-istim  { color: var(--win); }
-
-  .acca-tagline {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 2px;
-  }
+  .acca-tagline { font-size: 12px; color: var(--muted); font-weight: 300; }
 
   .acca-meta {
     display: flex;
     gap: 16px;
-    margin-top: 14px;
+    margin-top: 16px;
     padding-top: 14px;
     border-top: 1px solid var(--border);
   }
-
   .acca-stat { flex: 1; }
   .acca-stat-val {
-    font-size: 1.4rem;
-    font-weight: 700;
+    font-family: var(--display);
+    font-size: 1.5rem;
     line-height: 1;
     margin-bottom: 3px;
+    letter-spacing: 0.02em;
   }
   .acca-stat-lbl {
-    font-size: 10px;
+    font-family: var(--mono);
+    font-size: 9px;
     color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.1em;
+    font-weight: 600;
   }
 
-  .acca-legs {
-    padding: 0;
-    flex: 1;
-  }
+  .acca-legs { padding: 0; flex: 1; }
 
   .acca-leg {
-    padding: 13px 20px;
+    padding: 12px 20px;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
@@ -94,15 +95,17 @@
   .leg-num {
     width: 22px;
     height: 22px;
-    border-radius: 50%;
-    background: var(--border);
+    border-radius: 2px;
+    background: var(--surface-hi);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
+    font-family: var(--mono);
+    font-size: 10px;
     font-weight: 700;
     color: var(--muted);
     flex-shrink: 0;
+    letter-spacing: 0;
   }
 
   .leg-body { flex: 1; min-width: 0; }
@@ -114,79 +117,78 @@
     overflow: hidden;
     text-overflow: ellipsis;
     margin-bottom: 2px;
+    letter-spacing: 0.01em;
   }
 
   .leg-meta {
-    font-size: 11px;
+    font-family: var(--mono);
+    font-size: 10.5px;
     color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-weight: 600;
+    letter-spacing: 0.04em;
   }
 
   .leg-tip {
-    font-size: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
     font-weight: 700;
     text-align: right;
     flex-shrink: 0;
     max-width: 90px;
+    letter-spacing: 0.06em;
   }
-
   .leg-tip-text {
     display: block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-
   .leg-conf {
     font-size: 10px;
     color: var(--muted);
     margin-top: 2px;
+    font-weight: 600;
   }
+
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .pill.faka  { background: rgba(232,255,71,0.1); color: var(--accent); border: 1px solid rgba(232,255,71,0.25); }
+  .pill.shaya { background: rgba(74,240,192,0.1); color: var(--accent2); border: 1px solid rgba(74,240,192,0.25); }
+  .pill.istim { background: rgba(240,96,200,0.1); color: #f060c8; border: 1px solid rgba(240,96,200,0.25); }
 
   .acca-empty {
     padding: 40px 20px;
     text-align: center;
     color: var(--muted);
     font-size: 13px;
+    font-weight: 300;
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
+    line-height: 1.6;
   }
 
   .acca-footer {
-    padding: 14px 20px;
+    padding: 12px 20px;
     border-top: 1px solid var(--border);
-    background: rgba(255,255,255,0.02);
-    font-size: 11px;
+    background: rgba(255,255,255,0.015);
+    font-family: var(--mono);
+    font-size: 10px;
     color: var(--muted);
     text-align: center;
-  }
-
-  /* Colour accents per acca type */
-  .border-faka  { border-color: rgba(200,240,96,0.3); }
-  .border-shaya { border-color: rgba(96,200,240,0.3); }
-  .border-istim { border-color: rgba(240,96,200,0.3); }
-
-  .odds-faka  { color: var(--accent); }
-  .odds-shaya { color: #60c8f0; }
-  .odds-istim { color: #f060c8; }
-
-  .pill {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-size: 11px;
     font-weight: 600;
-  }
-  .pill-faka  { background: rgba(200,240,96,0.12); color: var(--accent); }
-  .pill-shaya { background: rgba(96,200,240,0.12); color: #60c8f0; }
-  .pill-istim { background: rgba(240,96,200,0.12); color: #f060c8; }
-
-  @media (max-width: 900px) {
-    .acca-grid { grid-template-columns: 1fr; }
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 </style>
 {% endblock %}
@@ -194,14 +196,11 @@
 {% block content %}
 
 <!-- PAGE HEADER -->
-<div style="padding-bottom:32px; border-bottom:1px solid var(--border); margin-bottom:36px;">
-  <div style="font-family:monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:8px;">
-    Today · {{ today|date:"D j M Y" }}
-  </div>
-  <h1 style="font-size:2rem; font-weight:800; letter-spacing:-0.03em; margin-bottom:10px;">
-    Today's Accumulators
-  </h1>
-  <p style="color:var(--muted); font-size:14px; max-width:560px; line-height:1.65;">
+<div style="padding-bottom:36px; border-bottom:1px solid var(--border); margin-bottom:36px;">
+  <div style="width:36px; height:3px; background:var(--accent); margin-bottom:16px; border-radius:2px;"></div>
+  <div class="page-eyebrow">Today &middot; {{ today|date:"D j M Y" }}</div>
+  <h1 class="page-title">Today's<br>Accumulators.</h1>
+  <p class="page-sub">
     Three slates built from today's highest-confidence value tips.
     Each leg is unique — one pick per match, selected for odds and model edge.
     {{ total_available }} qualifying tip{{ total_available|pluralize }} available today.
@@ -209,34 +208,35 @@
 </div>
 
 <!-- WARNING BANNER -->
-<div style="background:rgba(210,153,34,0.08); border:1px solid rgba(210,153,34,0.25);
-            border-radius:10px; padding:12px 18px; margin-bottom:28px;
-            font-size:12.5px; color:var(--warn); line-height:1.55;">
+<div style="background:rgba(255,179,64,0.06); border:1px solid rgba(255,179,64,0.2);
+            border-left:3px solid var(--warn);
+            border-radius:var(--radius); padding:12px 18px; margin-bottom:32px;
+            font-size:12.5px; color:var(--warn); line-height:1.55; font-weight:300;">
   Accumulators are high-risk. Combined odds multiply errors — a single wrong result loses the whole slip.
   These are research tools, not guaranteed wins. Bet only what you can afford to lose.
 </div>
 
 {% if total_available < 4 %}
-<div style="text-align:center; padding:64px 24px; color:var(--muted); border:1px solid var(--border); border-radius:14px;">
-  <div style="font-size:1.5rem; margin-bottom:12px; opacity:0.4;">—</div>
-  <div style="font-weight:600; margin-bottom:8px;">Not enough tips yet today.</div>
-  <p style="font-size:13px;">Check back after the morning pipeline runs. Need at least 4 published predictions to build accumulators.</p>
+<div style="text-align:center; padding:80px 24px; color:var(--muted); border:1px solid var(--border); border-radius:var(--radius); background:var(--surface);">
+  <div style="font-family:var(--display); font-size:3rem; color:var(--dim); line-height:1; margin-bottom:14px; letter-spacing:0.04em;">—</div>
+  <div style="font-family:var(--mono); font-size:12px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:10px;">Not enough tips today</div>
+  <p style="font-size:13px; font-weight:300;">Check back after the morning pipeline runs. Need at least 4 published predictions to build accumulators.</p>
 </div>
 {% else %}
 
 <div class="acca-grid">
 
-  <!-- ── FAKA YONKE ─────────────────────────────────────────────────────── -->
-  <div class="acca-card border-faka">
+  <!-- FAKA YONKE -->
+  <div class="acca-card faka">
     <div class="acca-header">
-      <div class="acca-type-label">4 – 5 legs · Maximum trust</div>
-      <div class="acca-name acca-name-faka">Faka Yonke</div>
+      <div class="acca-type-label">4 – 5 legs &middot; Maximum trust</div>
+      <div class="acca-name faka">Faka Yonke</div>
       <div class="acca-tagline">Only the strongest. Every leg earned its place.</div>
 
       {% if faka_yonke %}
       <div class="acca-meta">
         <div class="acca-stat">
-          <div class="acca-stat-val odds-faka">{{ faka_yonke.combined_odds }}x</div>
+          <div class="acca-stat-val" style="color:var(--accent);">{{ faka_yonke.combined_odds }}x</div>
           <div class="acca-stat-lbl">Combined odds</div>
         </div>
         <div class="acca-stat">
@@ -258,42 +258,34 @@
           <div class="acca-leg">
             <div class="leg-num">{{ forloop.counter }}</div>
             <div class="leg-body">
-              <div class="leg-teams">
-                {{ pred.fixture.home_team.name }} vs {{ pred.fixture.away_team.name }}
-              </div>
-              <div class="leg-meta">
-                {{ pred.fixture.league.name }} · {{ pred.fixture.kickoff|date:"H:i" }}
-              </div>
+              <div class="leg-teams">{{ pred.fixture.home_team.name }} vs {{ pred.fixture.away_team.name }}</div>
+              <div class="leg-meta">{{ pred.fixture.league.name }} &middot; {{ pred.fixture.kickoff|date:"H:i" }}</div>
             </div>
             <div class="leg-tip">
-              <span class="leg-tip-text pill pill-faka">{{ pred.tip }}</span>
+              <span class="leg-tip-text pill faka">{{ pred.tip }}</span>
               <div class="leg-conf">{{ pred.confidence|floatformat:0 }}%</div>
             </div>
           </div>
         </a>
         {% endfor %}
       </div>
-      <div class="acca-footer">
-        Tap any leg to see full match analysis
-      </div>
+      <div class="acca-footer">Tap any leg for full analysis</div>
     {% else %}
-      <div class="acca-empty">
-        Not enough high-confidence tips to build this acca today.
-      </div>
+      <div class="acca-empty">Not enough high-confidence tips to build this acca today.</div>
     {% endif %}
   </div>
 
-  <!-- ── SHAYA ZONKE ────────────────────────────────────────────────────── -->
-  <div class="acca-card border-shaya">
+  <!-- SHAYA ZONKE -->
+  <div class="acca-card shaya">
     <div class="acca-header">
-      <div class="acca-type-label">6 – 10 legs · Solid value</div>
-      <div class="acca-name acca-name-shaya">Shaya Zonke</div>
+      <div class="acca-type-label">6 – 10 legs &middot; Solid value</div>
+      <div class="acca-name shaya">Shaya Zonke</div>
       <div class="acca-tagline">The balanced play. Bigger odds, still grounded.</div>
 
       {% if shaya_zonke %}
       <div class="acca-meta">
         <div class="acca-stat">
-          <div class="acca-stat-val odds-shaya">{{ shaya_zonke.combined_odds }}x</div>
+          <div class="acca-stat-val" style="color:var(--accent2);">{{ shaya_zonke.combined_odds }}x</div>
           <div class="acca-stat-lbl">Combined odds</div>
         </div>
         <div class="acca-stat">
@@ -315,42 +307,34 @@
           <div class="acca-leg">
             <div class="leg-num">{{ forloop.counter }}</div>
             <div class="leg-body">
-              <div class="leg-teams">
-                {{ pred.fixture.home_team.name }} vs {{ pred.fixture.away_team.name }}
-              </div>
-              <div class="leg-meta">
-                {{ pred.fixture.league.name }} · {{ pred.fixture.kickoff|date:"H:i" }}
-              </div>
+              <div class="leg-teams">{{ pred.fixture.home_team.name }} vs {{ pred.fixture.away_team.name }}</div>
+              <div class="leg-meta">{{ pred.fixture.league.name }} &middot; {{ pred.fixture.kickoff|date:"H:i" }}</div>
             </div>
             <div class="leg-tip">
-              <span class="leg-tip-text pill pill-shaya">{{ pred.tip }}</span>
+              <span class="leg-tip-text pill shaya">{{ pred.tip }}</span>
               <div class="leg-conf">{{ pred.confidence|floatformat:0 }}%</div>
             </div>
           </div>
         </a>
         {% endfor %}
       </div>
-      <div class="acca-footer">
-        Tap any leg to see full match analysis
-      </div>
+      <div class="acca-footer">Tap any leg for full analysis</div>
     {% else %}
-      <div class="acca-empty">
-        Not enough tips to build this acca today.
-      </div>
+      <div class="acca-empty">Not enough tips to build this acca today.</div>
     {% endif %}
   </div>
 
-  <!-- ── ISTIMELA ───────────────────────────────────────────────────────── -->
-  <div class="acca-card border-istim">
+  <!-- ISTIMELA -->
+  <div class="acca-card istim">
     <div class="acca-header">
-      <div class="acca-type-label">10 – 15 legs · The train</div>
-      <div class="acca-name acca-name-istim">Istimela</div>
+      <div class="acca-type-label">10 – 15 legs &middot; The train</div>
+      <div class="acca-name istim">Istimela</div>
       <div class="acca-tagline">All aboard. Maximum legs, maximum payout.</div>
 
       {% if istimela %}
       <div class="acca-meta">
         <div class="acca-stat">
-          <div class="acca-stat-val odds-istim">{{ istimela.combined_odds }}x</div>
+          <div class="acca-stat-val" style="color:#f060c8;">{{ istimela.combined_odds }}x</div>
           <div class="acca-stat-lbl">Combined odds</div>
         </div>
         <div class="acca-stat">
@@ -372,28 +356,20 @@
           <div class="acca-leg">
             <div class="leg-num">{{ forloop.counter }}</div>
             <div class="leg-body">
-              <div class="leg-teams">
-                {{ pred.fixture.home_team.name }} vs {{ pred.fixture.away_team.name }}
-              </div>
-              <div class="leg-meta">
-                {{ pred.fixture.league.name }} · {{ pred.fixture.kickoff|date:"H:i" }}
-              </div>
+              <div class="leg-teams">{{ pred.fixture.home_team.name }} vs {{ pred.fixture.away_team.name }}</div>
+              <div class="leg-meta">{{ pred.fixture.league.name }} &middot; {{ pred.fixture.kickoff|date:"H:i" }}</div>
             </div>
             <div class="leg-tip">
-              <span class="leg-tip-text pill pill-istim">{{ pred.tip }}</span>
+              <span class="leg-tip-text pill istim">{{ pred.tip }}</span>
               <div class="leg-conf">{{ pred.confidence|floatformat:0 }}%</div>
             </div>
           </div>
         </a>
         {% endfor %}
       </div>
-      <div class="acca-footer">
-        Tap any leg to see full match analysis
-      </div>
+      <div class="acca-footer">Tap any leg for full analysis</div>
     {% else %}
-      <div class="acca-empty">
-        Need 10+ qualifying tips for Istimela. Check back later today.
-      </div>
+      <div class="acca-empty">Need 10+ qualifying tips for Istimela. Check back later today.</div>
     {% endif %}
   </div>
 
@@ -401,23 +377,23 @@
 {% endif %}
 
 <!-- HOW IT WORKS -->
-<div style="border-top:1px solid var(--border); padding-top:28px;">
-  <div style="font-size:1rem; font-weight:700; margin-bottom:14px;">How the legs are chosen</div>
-  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; font-size:13px; color:var(--muted); line-height:1.65;">
+<div style="border-top:1px solid var(--border); padding-top:32px;">
+  <div class="section-label" style="margin-bottom:20px;">How the legs are chosen</div>
+  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px; font-size:13px; color:var(--muted); line-height:1.65; font-weight:300;">
     <div>
-      <div style="font-weight:600; color:var(--text); margin-bottom:4px;">Value first</div>
+      <div style="font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:8px;">Value first</div>
       Every leg starts with our model finding positive expected value against the bookmaker.
       If there's no edge, it doesn't make the acca.
     </div>
     <div>
-      <div style="font-weight:600; color:var(--text); margin-bottom:4px;">One pick per match</div>
+      <div style="font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:8px;">One pick per match</div>
       No fixture appears twice. We pick the single best tip from each match —
       1X2 and BTTS preferred over corners or handicaps.
     </div>
     <div>
-      <div style="font-weight:600; color:var(--text); margin-bottom:4px;">Independent slates</div>
-      Each acca uses a completely different set of matches. Faka Yonke takes the top 5 tips, Shaya Zonke takes the next 8, Istimela takes the rest — so a loss in one acca has zero impact on the others.
-      The strongest tips are always in the smaller acca.
+      <div style="font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:8px;">Independent slates</div>
+      Each acca uses a completely different set of matches. A loss in one has zero
+      impact on the others. The strongest tips always go to the smaller acca.
     </div>
   </div>
 </div>

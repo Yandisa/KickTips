@@ -1,0 +1,408 @@
+{% extends 'website/base.html' %}
+{% block title %}Winners — KickTips{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── SUBMISSION FORM ── */
+  .win-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 52px;
+  }
+  .win-form-header {
+    padding: 24px 24px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(74,240,160,0.04);
+    position: relative;
+  }
+  .win-form-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--win), var(--accent2));
+  }
+  .win-form-body { padding: 24px; }
+
+  .field-group { margin-bottom: 18px; }
+  .field-label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 7px;
+  }
+  .field-label span { color: var(--win); margin-left: 2px; }
+  .field-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color 0.15s;
+    -webkit-appearance: none;
+  }
+  .field-input::placeholder { color: var(--dim); font-weight: 400; }
+  .field-input:focus { border-color: var(--win); }
+  .field-input.error { border-color: var(--loss); }
+  select.field-input { cursor: pointer; }
+  textarea.field-input { resize: vertical; min-height: 72px; font-size: 13px; line-height: 1.6; }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 540px) { .field-row { grid-template-columns: 1fr; } }
+
+  .form-error { font-family: var(--mono); font-size: 11px; color: var(--loss); margin-top: 5px; font-weight: 600; letter-spacing: 0.04em; }
+
+  /* ── SUCCESS TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    right: 24px;
+    background: var(--win);
+    color: #060608;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 12px 20px;
+    border-radius: var(--radius);
+    z-index: 9999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+    max-width: 280px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ── WINNERS WALL ── */
+  .winner-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 18px 20px;
+    transition: border-color 0.15s, transform 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .winner-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: var(--win);
+  }
+  .winner-card:hover { border-color: rgba(74,240,160,0.3); transform: translateY(-2px); }
+  .winner-card.faka  { --card-color: var(--accent); }
+  .winner-card.shaya { --card-color: var(--accent2); }
+  .winner-card.istim { --card-color: #f060c8; }
+  .winner-card.custom { --card-color: var(--warn); }
+  .winner-card::before { background: var(--card-color, var(--win)); }
+
+  .winner-name {
+    font-family: var(--display);
+    font-size: 1.4rem;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .winner-amount {
+    font-family: var(--display);
+    font-size: 2rem;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    color: var(--win);
+    margin-bottom: 8px;
+  }
+  .winner-acca-badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 2px;
+    margin-bottom: 10px;
+  }
+  .badge-faka  { background: rgba(232,255,71,0.10); color: var(--accent);  border: 1px solid rgba(232,255,71,0.25); }
+  .badge-shaya { background: rgba(74,240,192,0.10); color: var(--accent2); border: 1px solid rgba(74,240,192,0.25); }
+  .badge-istim { background: rgba(240,96,200,0.10); color: #f060c8;        border: 1px solid rgba(240,96,200,0.25); }
+  .badge-custom{ background: rgba(255,179,64,0.10); color: var(--warn);    border: 1px solid rgba(255,179,64,0.25); }
+
+  .winner-msg {
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+    font-weight: 300;
+    line-height: 1.5;
+  }
+  .winner-time {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    margin-top: 10px;
+  }
+
+  .winners-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+  }
+
+  .empty-wall {
+    padding: 60px 24px;
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HEADER -->
+<div style="padding:48px 0 52px; border-bottom:1px solid var(--border); margin-bottom:48px;">
+  <div style="width:36px; height:3px; background:var(--win); margin-bottom:16px; border-radius:2px;"></div>
+  <div class="page-eyebrow" style="color:var(--win);">Community</div>
+  <h1 class="page-title">Winners<br>Wall.</h1>
+  <p class="page-sub">
+    Real people. Real winnings. Share your win and inspire others —
+    your story gets featured in the live ticker on every page.
+  </p>
+</div>
+
+<!-- SUBMISSION FORM -->
+<div class="win-form" id="winForm">
+  <div class="win-form-header">
+    <div style="font-family:var(--display); font-size:1.6rem; letter-spacing:0.04em; color:var(--text); line-height:1; margin-bottom:4px; text-transform:uppercase;">Share Your Win</div>
+    <div style="font-family:var(--mono); font-size:11px; color:var(--muted); font-weight:600; letter-spacing:0.08em;">Your entry appears in the ticker instantly</div>
+  </div>
+
+  <div class="win-form-body">
+    <div class="field-row">
+      <div class="field-group">
+        <label class="field-label" for="wName">Your name <span>*</span></label>
+        <input id="wName" type="text" class="field-input" placeholder="e.g. Sipho" maxlength="32">
+        <div class="form-error" id="err-name" style="display:none;">Please enter your name.</div>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="wAmount">Amount won <span>*</span></label>
+        <input id="wAmount" type="text" class="field-input" placeholder="e.g. R2 500" maxlength="20">
+        <div class="form-error" id="err-amount" style="display:none;">Please enter the amount.</div>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field-group">
+        <label class="field-label" for="wAcca">Which acca / tip? <span>*</span></label>
+        <select id="wAcca" class="field-input">
+          <option value="">— Select —</option>
+          <option value="Faka Yonke">Faka Yonke (4–5 legs)</option>
+          <option value="Shaya Zonke">Shaya Zonke (6–10 legs)</option>
+          <option value="Istimela">Istimela (10–15 legs)</option>
+          <option value="Single tip">Single tip</option>
+          <option value="My own selection">My own selection</option>
+        </select>
+        <div class="form-error" id="err-acca" style="display:none;">Please select an option.</div>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="wDate">Date won</label>
+        <input id="wDate" type="date" class="field-input">
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="wMsg">Your message <span style="color:var(--dim);">(optional)</span></label>
+      <textarea id="wMsg" class="field-input" placeholder="e.g. First time using KickTips and I'm already up! Istimela is something else." maxlength="160"></textarea>
+      <div style="font-family:var(--mono); font-size:10px; color:var(--dim); text-align:right; margin-top:4px;" id="msgCount">0 / 160</div>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding-top:4px;">
+      <button class="btn btn-win" onclick="submitWin()" style="min-width:160px;">Post My Win</button>
+      <p style="font-size:12px; color:var(--dim); font-weight:300; line-height:1.4; max-width:300px;">
+        By submitting you confirm this is genuine. No personal financial details required.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- WINNERS WALL -->
+<div>
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap;">
+    <div class="section-label" style="border:none; padding:0; margin:0;">Community Wins</div>
+    <div style="font-family:var(--mono); font-size:10px; color:var(--muted); font-weight:600; letter-spacing:0.1em; text-transform:uppercase;" id="winCount"></div>
+  </div>
+
+  <div class="winners-grid" id="winnersGrid"></div>
+
+  <div class="empty-wall" id="emptyWall" style="display:none;">
+    <div style="font-family:var(--mono); font-size:11px; letter-spacing:0.14em; color:var(--muted); text-transform:uppercase; font-weight:600; margin-bottom:8px;">Be the first to share</div>
+    <p style="font-size:13px; color:var(--dim); font-weight:300;">Submit your win above and it'll show right here.</p>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">Win posted! You're on the board.</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+//  KickTips Winners Wall
+// ─────────────────────────────────────────────────────────────
+
+const SEED_WINNERS = [
+  { name:"Ayanda",  amount:"R5 000", acca:"Istimela",       msg:"Istimela never misses. I'm telling everyone.",  date:"2026-04-05", ts: Date.now() - 86400000*0 },
+  { name:"Nandi",   amount:"R3 200", acca:"Istimela",       msg:"",                                              date:"2026-04-04", ts: Date.now() - 86400000*1 },
+  { name:"Lerato",  amount:"R2 400", acca:"Shaya Zonke",    msg:"",                                              date:"2026-04-03", ts: Date.now() - 86400000*2 },
+  { name:"Zanele",  amount:"R1 800", acca:"Shaya Zonke",    msg:"Couldn't believe it when the last game went in!", date:"2026-04-03", ts: Date.now() - 86400000*2 },
+  { name:"Sipho",   amount:"R1 100", acca:"Faka Yonke",     msg:"First time using KickTips and already won!",    date:"2026-04-02", ts: Date.now() - 86400000*3 },
+  { name:"Themba",  amount:"R850",   acca:"Faka Yonke",     msg:"",                                              date:"2026-04-01", ts: Date.now() - 86400000*4 },
+  { name:"Bongani", amount:"R750",   acca:"Shaya Zonke",    msg:"",                                              date:"2026-03-31", ts: Date.now() - 86400000*5 },
+  { name:"Kagiso",  amount:"R600",   acca:"Single tip",     msg:"Easy money.",                                   date:"2026-03-30", ts: Date.now() - 86400000*6 },
+];
+
+function getAccaClass(acca) {
+  if (acca.includes('Faka'))   return 'faka';
+  if (acca.includes('Shaya'))  return 'shaya';
+  if (acca.includes('Istimela')) return 'istim';
+  return 'custom';
+}
+
+function getBadgeClass(acca) {
+  const c = getAccaClass(acca);
+  return 'badge-' + c;
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 2)   return 'Just now';
+  if (mins < 60)  return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)   return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function loadWinners() {
+  try {
+    const raw = localStorage.getItem('kt_winners');
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function saveWinners(arr) {
+  try { localStorage.setItem('kt_winners', JSON.stringify(arr)); } catch(e) {}
+}
+
+function renderGrid() {
+  const user = loadWinners();
+  const all  = [...user, ...SEED_WINNERS];
+  const grid  = document.getElementById('winnersGrid');
+  const empty = document.getElementById('emptyWall');
+  const count = document.getElementById('winCount');
+
+  count.textContent = all.length + ' winner' + (all.length !== 1 ? 's' : '');
+
+  if (!all.length) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  grid.innerHTML = all.map(w => `
+    <div class="winner-card ${getAccaClass(w.acca)}">
+      <div class="winner-name">${escHtml(w.name)}</div>
+      <div class="winner-amount">${escHtml(w.amount)}</div>
+      <div><span class="winner-acca-badge ${getBadgeClass(w.acca)}">${escHtml(w.acca)}</span></div>
+      ${w.msg ? `<div class="winner-msg">"${escHtml(w.msg)}"</div>` : ''}
+      <div class="winner-time">${timeAgo(w.ts)}</div>
+    </div>
+  `).join('');
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function showError(id, show) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = show ? 'block' : 'none';
+}
+
+function submitWin() {
+  const name   = document.getElementById('wName').value.trim();
+  const amount = document.getElementById('wAmount').value.trim();
+  const acca   = document.getElementById('wAcca').value;
+  const msg    = document.getElementById('wMsg').value.trim();
+  const date   = document.getElementById('wDate').value;
+
+  let valid = true;
+  showError('err-name',   !name);   if (!name)   valid = false;
+  showError('err-amount', !amount); if (!amount) valid = false;
+  showError('err-acca',   !acca);   if (!acca)   valid = false;
+
+  document.getElementById('wName').classList.toggle('error',   !name);
+  document.getElementById('wAmount').classList.toggle('error', !amount);
+  document.getElementById('wAcca').classList.toggle('error',   !acca);
+
+  if (!valid) return;
+
+  const winners = loadWinners();
+  winners.unshift({ name, amount, acca, msg, date, ts: Date.now() });
+  saveWinners(winners);
+
+  // Reset form
+  ['wName','wAmount','wMsg'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('wAcca').value = '';
+  document.getElementById('wDate').value = '';
+  document.getElementById('msgCount').textContent = '0 / 160';
+
+  renderGrid();
+  showToast();
+
+  // Smooth scroll to wall
+  document.getElementById('winnersGrid').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function showToast() {
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// Char counter
+document.addEventListener('DOMContentLoaded', () => {
+  renderGrid();
+  const ta = document.getElementById('wMsg');
+  const ctr = document.getElementById('msgCount');
+  if (ta && ctr) {
+    ta.addEventListener('input', () => { ctr.textContent = ta.value.length + ' / 160'; });
+  }
+});
+
+// Live sync across tabs
+window.addEventListener('storage', e => {
+  if (e.key === 'kt_winners') renderGrid();
+});
+</script>
+
+{% endblock %}

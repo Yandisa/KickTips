@@ -270,28 +270,24 @@ def matches(request):
     # Rebuild league_groups after filtering + sorting
     from collections import OrderedDict
     league_groups = OrderedDict()
-    for fixture in fixtures:
-        if sort_by == "time":
-            # When sorting by time, group all into a single flat list
-            key = f"{fixture.kickoff.strftime('%H:%M')} · {fixture.league.country} · {fixture.league.name}"
-        else:
-            key = f"{fixture.league.country} · {fixture.league.name}"
-        if key not in league_groups:
-            league_groups[key] = {"label": key, "fixtures": [], "league": fixture.league}
-        league_groups[key]["fixtures"].append(fixture)
 
-    # For time sort, merge into single group to keep global time order
     if sort_by == "time":
-        all_fixtures_sorted = []
-        for group in league_groups.values():
-            all_fixtures_sorted.extend(group["fixtures"])
-        all_fixtures_sorted.sort(key=lambda f: f.kickoff)
-        league_groups = OrderedDict()
+        # Single flat group sorted by kickoff time
+        fixtures_by_time = sorted(fixtures, key=lambda f: f.kickoff)
         league_groups["all"] = {
-            "label": f"{selected_date|date:'l j F'}" if False else f"{len(all_fixtures_sorted)} matches · sorted by time",
-            "fixtures": all_fixtures_sorted,
+            "label": f"{len(fixtures_by_time)} matches · sorted by time",
+            "fixtures": fixtures_by_time,
             "league": None,
         }
+    else:
+        for fixture in fixtures:
+            key = f"{fixture.league.country} · {fixture.league.name}"
+            if key not in league_groups:
+                league_groups[key] = {"label": key, "fixtures": [], "league": fixture.league}
+            league_groups[key]["fixtures"].append(fixture)
+        if sort_by == "confidence":
+            for group in league_groups.values():
+                group["fixtures"].sort(key=lambda f: f.best_confidence, reverse=True)
 
     return render(request, "website/matches.html", {
         "fixtures":       fixtures,

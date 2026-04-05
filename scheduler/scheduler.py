@@ -38,11 +38,23 @@ def evening_pipeline():
     """Fetch tomorrow's fixtures and publish predictions for them."""
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
     logger.info("=== Scheduler: Evening pipeline starting (target: %s) ===", tomorrow)
+
+    # Step 1: backfill history for teams playing in the next 7 days.
+    # Skips teams that already have 6+ matches in DB — cheap on subsequent days.
+    try:
+        call_command("fetch_history")
+    except Exception as exc:
+        logger.error("fetch_history failed: %s", exc)
+        # non-fatal — continue with whatever history is already in DB
+
+    # Step 2: fetch tomorrow's fixtures + enrich team stats
     try:
         call_command("fetch_fixtures", tomorrow=True)
     except Exception as exc:
         logger.error("fetch_fixtures --tomorrow failed: %s", exc)
         return  # don't run predictions if fixture fetch failed
+
+    # Step 3: score and publish predictions
     try:
         call_command("run_predictions", date=tomorrow)
     except Exception as exc:

@@ -61,49 +61,37 @@ def _ranked_unique(predictions, min_conf=0.0):
     return sorted(by_match.values(), key=_score_prediction, reverse=True)
 
 
-def _build_acca(legs, size_min, size_max, fallback=None):
+def _build_acca(legs, size_min, size_max):
     """
     Build an accumulator from a ranked pool of legs, enforcing:
       - Max MAX_SAME_MARKET_PER_ACCA legs of the same market type
       - Max MAX_SAME_LEAGUE_PER_ACCA legs from the same league
       - Between size_min and size_max total legs
+      - Combined odds use real bookmaker decimals where available
 
-    If the primary pool doesn't yield size_min legs after variety filtering,
-    pulls from `fallback` (the full ranked list) to fill up, still respecting
-    variety caps and skipping already-selected fixtures.
+    Iterates the full ranked pool and selects qualifying legs in order,
+    so variety is enforced without sacrificing overall confidence.
     """
-    selected      = []
+    selected = []
     market_counts = {}
     league_counts = {}
-    used_fixtures = set()
 
-    def _try_add(pred):
-        if pred.fixture_id in used_fixtures:
-            return False
-        market    = pred.market
-        league_id = pred.fixture.league_id
-        if market_counts.get(market, 0) >= MAX_SAME_MARKET_PER_ACCA:
-            return False
-        if league_counts.get(league_id, 0) >= MAX_SAME_LEAGUE_PER_ACCA:
-            return False
-        selected.append(pred)
-        market_counts[market]    = market_counts.get(market, 0) + 1
-        league_counts[league_id] = league_counts.get(league_id, 0) + 1
-        used_fixtures.add(pred.fixture_id)
-        return True
-
-    # Primary pool
     for pred in legs:
         if len(selected) >= size_max:
             break
-        _try_add(pred)
 
-    # If short, pull from fallback (full ranked list) to fill gaps
-    if len(selected) < size_min and fallback:
-        for pred in fallback:
-            if len(selected) >= size_max:
-                break
-            _try_add(pred)
+        market = pred.market
+        league_id = pred.fixture.league_id
+
+        # Enforce variety caps
+        if market_counts.get(market, 0) >= MAX_SAME_MARKET_PER_ACCA:
+            continue
+        if league_counts.get(league_id, 0) >= MAX_SAME_LEAGUE_PER_ACCA:
+            continue
+
+        selected.append(pred)
+        market_counts[market] = market_counts.get(market, 0) + 1
+        league_counts[league_id] = league_counts.get(league_id, 0) + 1
 
     if len(selected) < size_min:
         return None
@@ -187,7 +175,9 @@ def matches(request):
 
     league_filter = request.GET.get("league", "")
     min_conf = request.GET.get("confidence", "0")
-    tip_filter = request.GET.get("tips", "only")  # default: show only matches with tips
+    tip_filter = request.GET.get("tips", "only")
+    result_filter = request.GET.get("result", "")
+    sort_by = request.GET.get("sort", "time")
 
     try:
         min_conf = float(min_conf)
@@ -256,28 +246,63 @@ def matches(request):
     if tip_filter == "only":
         fixtures = [f for f in fixtures if f.has_tip]
 
+    # Result filter
+    if result_filter == "pending":
+        fixtures = [f for f in fixtures if f.status == "scheduled" and f.has_tip]
+    elif result_filter == "won":
+        fixtures = [f for f in fixtures
+                    if f.best_prediction and f.best_prediction.result == "won"]
+    elif result_filter == "lost":
+        fixtures = [f for f in fixtures
+                    if f.best_prediction and f.best_prediction.result == "lost"]
+    elif result_filter == "live":
+        fixtures = [f for f in fixtures if f.status == "live"]
+
+    # Sort
+    if sort_by == "confidence":
+        fixtures = sorted(fixtures, key=lambda f: f.best_confidence, reverse=True)
+    elif sort_by == "time":
+        fixtures = sorted(fixtures, key=lambda f: f.kickoff)
+    # league sort keeps existing league_groups order
+
     leagues = League.objects.filter(active=True).order_by("tier", "name")
 
-    # Pre-group fixtures by league for the template.
-    # Using regroup in the template splits on object identity, not league name —
-    # two League DB records with the same name appear as two groups.
-    # Pre-grouping here collapses them correctly.
+    # Rebuild league_groups after filtering + sorting
     from collections import OrderedDict
     league_groups = OrderedDict()
     for fixture in fixtures:
-        key = f"{fixture.league.country} · {fixture.league.name}"
+        if sort_by == "time":
+            # When sorting by time, group all into a single flat list
+            key = f"{fixture.kickoff.strftime('%H:%M')} · {fixture.league.country} · {fixture.league.name}"
+        else:
+            key = f"{fixture.league.country} · {fixture.league.name}"
         if key not in league_groups:
             league_groups[key] = {"label": key, "fixtures": [], "league": fixture.league}
         league_groups[key]["fixtures"].append(fixture)
 
+    # For time sort, merge into single group to keep global time order
+    if sort_by == "time":
+        all_fixtures_sorted = []
+        for group in league_groups.values():
+            all_fixtures_sorted.extend(group["fixtures"])
+        all_fixtures_sorted.sort(key=lambda f: f.kickoff)
+        league_groups = OrderedDict()
+        league_groups["all"] = {
+            "label": f"{selected_date|date:'l j F'}" if False else f"{len(all_fixtures_sorted)} matches · sorted by time",
+            "fixtures": all_fixtures_sorted,
+            "league": None,
+        }
+
     return render(request, "website/matches.html", {
-        "fixtures":      fixtures,
-        "league_groups": list(league_groups.values()),
-        "selected_date": selected_date,
-        "leagues":       leagues,
-        "league_filter": league_filter,
-        "min_conf":      min_conf,
-        "tip_filter":    tip_filter,
+        "fixtures":       fixtures,
+        "league_groups":  list(league_groups.values()),
+        "selected_date":  selected_date,
+        "leagues":        leagues,
+        "league_filter":  league_filter,
+        "min_conf":       min_conf,
+        "tip_filter":     tip_filter,
+        "result_filter":  result_filter,
+        "sort_by":        sort_by,
     })
 
 
@@ -428,32 +453,20 @@ def accumulators(request):
         .order_by("-confidence")
     )
 
-    # Build one master ranked pool (all qualifying tips, best first).
-    # Then slice into THREE NON-OVERLAPPING bands so each acca is
-    # fully independent — if a Faka leg loses, Shaya and Istimela
-    # are completely unaffected (different matches entirely).
-    #
-    #   Faka Yonke  → positions 1-5   (highest confidence)
-    #   Shaya Zonke → positions 6-13  (next tier)
-    #   Istimela    → positions 14+   (remaining)
+    # Each tier has its own confidence floor and independent ranked pool.
+    # _build_acca enforces market and league variety within each pool —
+    # so Shaya Zonke won't have 5 BTTS legs from the same league.
+    faka_legs  = _ranked_unique(all_preds, min_conf=FAKA_MIN_CONF)
+    shaya_legs = _ranked_unique(all_preds, min_conf=SHAYA_MIN_CONF)
+    istim_legs = _ranked_unique(all_preds, min_conf=ISTIMELA_MIN_CONF)
 
-    all_legs        = _ranked_unique(all_preds, min_conf=ISTIMELA_MIN_CONF)
-    total_available = len(all_legs)
+    total_available = len(istim_legs)
 
-    FAKA_SIZE  = 5
-    SHAYA_SIZE = 8
-
-    # Slice into non-overlapping bands by position — no per-acca confidence
-    # floor needed since ranking already puts highest confidence first.
-    faka_pool  = all_legs[:FAKA_SIZE]
-    shaya_pool = all_legs[FAKA_SIZE:FAKA_SIZE + SHAYA_SIZE]
-    istim_pool = all_legs[FAKA_SIZE + SHAYA_SIZE:]
-
-    # Pass full list as fallback so small pools can fill to size_min
-    # while still using different fixtures from the other accas.
-    faka_yonke  = _build_acca(faka_pool,  size_min=4, size_max=FAKA_SIZE,  fallback=all_legs)
-    shaya_zonke = _build_acca(shaya_pool, size_min=4, size_max=SHAYA_SIZE, fallback=all_legs)
-    istimela    = _build_acca(istim_pool, size_min=4, size_max=12,          fallback=all_legs)
+    # Size ranges: Faka tight (4-5), Shaya medium (5-8), Istimela long (8-12).
+    # Reduced from previous maximums — a focused 8-leg acca beats a padded 15-leg one.
+    faka_yonke  = _build_acca(faka_legs,  size_min=4, size_max=5)
+    shaya_zonke = _build_acca(shaya_legs, size_min=5, size_max=8)
+    istimela    = _build_acca(istim_legs, size_min=8, size_max=12)
 
     return render(request, "website/accumulators.html", {
         "today":           today,

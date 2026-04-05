@@ -10,6 +10,7 @@ What's new vs v1:
 """
 
 import logging
+import random
 import time
 from datetime import date, timedelta
 from typing import Optional
@@ -98,6 +99,7 @@ class Command(BaseCommand):
             for tid, tname, lg in unique_teams
             if self._league_has_data(lg)
         ]
+        random.shuffle(qualified_teams)
         limited_teams = qualified_teams[:MAX_TEAM_STAT_UPDATES]
         skipped_teams = len(unique_teams) - len(qualified_teams)
         deferred_teams = max(0, len(qualified_teams) - len(limited_teams))
@@ -122,6 +124,7 @@ class Command(BaseCommand):
             if (fixture.venue or "").startswith("fs:")
             and self._league_has_data(fixture.league)
         ]
+        random.shuffle(qualified_enrichments)
         limited_enrichments = qualified_enrichments[:MAX_ENRICHMENT_PER_RUN]
 
         self.stdout.write(

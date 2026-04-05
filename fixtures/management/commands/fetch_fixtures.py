@@ -470,6 +470,11 @@ class Command(BaseCommand):
 
         team = Team.objects.filter(api_id=fake_int_id).first()
         if team:
+            # Fix blank or Unknown_ names if we now have a real name
+            if team_name and (not team.name or team.name.startswith("Unknown_")):
+                team.name = team_name
+                team.save(update_fields=["name"])
+                logger.info("Fixed team name: %s → %s", team.api_id, team_name)
             return team
 
         team = Team.objects.filter(name=team_name, league=league).first()

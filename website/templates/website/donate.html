@@ -3,14 +3,17 @@
 
 {% block content %}
 
-<!-- HERO ─────────────────────────────────────────────────── -->
-<div style="max-width:640px; padding:48px 0 60px; border-bottom:1px solid var(--border); margin-bottom:52px;">
+<!-- HERO -->
+<div style="max-width:640px; padding:52px 0 64px; border-bottom:1px solid var(--border); margin-bottom:56px; position:relative;">
+
+  <div style="width:36px; height:3px; background:var(--accent); margin-bottom:18px; border-radius:2px;"></div>
+
   <div class="page-eyebrow">Keep the lights on</div>
   <h1 class="page-title">
-    Did we help you<br>
-    <em style="font-style:italic; color:var(--accent);">pick a winner?</em>
+    Did we help you<br>pick a winner?
   </h1>
-  <p style="font-size:15px; color:var(--muted); line-height:1.75; max-width:480px; margin-bottom:28px;">
+
+  <p style="font-size:15px; color:var(--muted); line-height:1.75; max-width:460px; margin-bottom:32px; font-weight:300;">
     KickTips is 100% free — no subscriptions, no paywalled tips, no ads.
     We publish every prediction and track every result publicly.
     A small donation helps cover server costs and keeps predictions running daily.
@@ -26,8 +29,8 @@
   </div>
 </div>
 
-<!-- STATS ────────────────────────────────────────────────── -->
-<div class="stat-row" style="margin-bottom:52px; grid-template-columns:repeat(3,1fr);">
+<!-- STATS -->
+<div class="stat-row" style="margin-bottom:56px; grid-template-columns:repeat(3,1fr);">
   <div class="stat-cell">
     <div class="val accent">{{ alltime.win_rate }}%</div>
     <div class="lbl">All-time win rate</div>
@@ -42,28 +45,28 @@
   </div>
 </div>
 
-<!-- RECENT WINS ──────────────────────────────────────────── -->
+<!-- RECENT WINS -->
 {% if recent_wins %}
   <div>
     <div class="section-label">Recent winning tips</div>
     {% for tip in recent_wins %}
       <div style="display:flex; align-items:center; justify-content:space-between; gap:20px;
-                  padding:14px 0; border-bottom:1px solid var(--border); flex-wrap:wrap;">
+                  padding:16px 0; border-bottom:1px solid var(--border); flex-wrap:wrap;">
         <div>
-          <div style="font-size:14px; font-weight:500;">
+          <div style="font-size:14px; font-weight:600; letter-spacing:0.01em;">
             {{ tip.fixture.home_team.name }}
-            <span style="color:var(--dim); margin:0 6px; font-weight:400;">vs</span>
+            <span style="color:var(--dim); margin:0 6px; font-weight:300; font-style:italic;">vs</span>
             {{ tip.fixture.away_team.name }}
           </div>
-          <div style="font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:2px;">
+          <div style="font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:2px; font-weight:600; letter-spacing:0.06em;">
             {{ tip.fixture.kickoff|date:"D j M" }}
           </div>
         </div>
-        <div style="text-align:right; display:flex; align-items:center; gap:14px; flex-shrink:0;">
-          <div style="font-size:13px; font-weight:500; color:var(--text);">{{ tip.tip }}</div>
-          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
+        <div style="display:flex; align-items:center; gap:14px; flex-shrink:0;">
+          <div class="tip-chip">{{ tip.tip }}</div>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
             <span class="result-pill won">Won</span>
-            <span style="font-family:var(--mono); font-size:10px; color:var(--muted);">
+            <span style="font-family:var(--mono); font-size:10px; color:var(--muted); font-weight:600;">
               {{ tip.confidence|floatformat:0 }}% conf
             </span>
           </div>

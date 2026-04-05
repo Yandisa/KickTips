@@ -4,30 +4,33 @@
 {% block content %}
 
 <!-- BACK -->
-<div style="margin-bottom:24px;">
-  <a href="{% url 'matches' %}" style="font-family:var(--mono); font-size:11px; letter-spacing:0.06em;
-     color:var(--muted); text-transform:uppercase; transition:color 0.15s;"
+<div style="margin-bottom:28px;">
+  <a href="{% url 'matches' %}" style="font-family:var(--mono); font-size:11px; letter-spacing:0.1em;
+     color:var(--muted); text-transform:uppercase; font-weight:600; transition:color 0.15s;"
      onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
     &larr; Matches
   </a>
 </div>
 
 <!-- MATCH HEADER -->
-<div style="padding-bottom:28px; border-bottom:1px solid var(--border); margin-bottom:36px;">
+<div style="padding-bottom:32px; border-bottom:1px solid var(--border); margin-bottom:40px;">
+
+  <div style="width:36px; height:3px; background:var(--accent); margin-bottom:16px; border-radius:2px;"></div>
+
   <div class="page-eyebrow">
     {{ fixture.league.country }} &middot; {{ fixture.league.name }} &middot; {{ fixture.kickoff|date:"D j M Y, H:i" }}
     {% if fixture.referee %}&ensp;&middot;&ensp;Ref: {{ fixture.referee.name }}{% endif %}
   </div>
 
   <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top:10px;">
-    <h1 style="font-family:var(--serif); font-size:clamp(1.4rem,4vw,2.2rem); line-height:1.15; letter-spacing:-0.02em; color:var(--text);">
+    <h1 style="font-family:var(--display); font-size:clamp(1.6rem,5vw,3rem); line-height:1; letter-spacing:0.03em; color:var(--text); text-transform:uppercase;">
       {% if fixture.status == 'finished' %}
         {{ fixture.home_team.name }}
-        <span style="color:var(--accent); margin:0 10px;">{{ fixture.home_score }}–{{ fixture.away_score }}</span>
+        <span style="color:var(--accent); margin:0 10px; font-size:0.75em;">{{ fixture.home_score }}–{{ fixture.away_score }}</span>
         {{ fixture.away_team.name }}
       {% else %}
         {{ fixture.home_team.name }}
-        <span style="color:var(--dim); font-style:italic; font-size:0.6em; margin:0 10px;">vs</span>
+        <span style="color:var(--dim); font-family:var(--sans); font-style:italic; font-size:0.5em; font-weight:300; margin:0 10px; text-transform:none;">vs</span>
         {{ fixture.away_team.name }}
       {% endif %}
     </h1>
@@ -37,7 +40,7 @@
   </div>
 
   {% if fixture.status == 'finished' and fixture.total_corners is not None %}
-    <div style="margin-top:12px; font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:0.04em;">
+    <div style="margin-top:12px; font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:0.06em; font-weight:600; text-transform:uppercase;">
       Corners: {{ fixture.total_corners }}
       {% if fixture.total_cards is not None %}&ensp;&middot;&ensp;Cards: {{ fixture.total_cards }}{% endif %}
     </div>
@@ -46,7 +49,7 @@
 
 <!-- PUBLISHED PREDICTIONS -->
 {% if published %}
-  <div style="margin-bottom:44px;">
+  <div style="margin-bottom:48px;">
     <div class="section-label">
       Our predictions &mdash; {{ published|length }} market{{ published|length|pluralize }}
     </div>
@@ -68,12 +71,12 @@
               <p class="pred-reasoning">{{ pred.reasoning }}</p>
             {% endif %}
           </div>
-          <div style="text-align:right; flex-shrink:0; min-width:72px;">
-            <div style="font-family:var(--serif); font-size:2rem; line-height:1; letter-spacing:-0.02em; color:var(--accent);">
-              {{ pred.confidence|floatformat:0 }}<span style="font-size:1rem; color:var(--muted);">%</span>
+          <div style="text-align:right; flex-shrink:0; min-width:76px;">
+            <div style="font-family:var(--display); font-size:2.4rem; line-height:1; letter-spacing:0.02em; color:var(--accent);">
+              {{ pred.confidence|floatformat:0 }}<span style="font-family:var(--mono); font-size:1rem; color:var(--muted); font-weight:600;">%</span>
             </div>
-            <div style="font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; margin-top:2px;">confidence</div>
-            <div class="conf-track" style="width:72px; margin:10px 0 10px auto;">
+            <div style="font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:0.12em; text-transform:uppercase; margin-top:2px; font-weight:600;">confidence</div>
+            <div class="conf-track" style="width:76px; margin:10px 0 10px auto;">
               <div class="conf-fill" style="width:{{ pred.confidence|floatformat:0 }}%;"></div>
             </div>
             {% if pred.result == 'won' %}
@@ -92,15 +95,15 @@
   </div>
 {% endif %}
 
-<!-- TEAM HISTORY (from API) -->
+<!-- TEAM HISTORY -->
 {% if home_history or away_history %}
-<div style="margin-bottom:44px;">
+<div style="margin-bottom:48px;">
   <div class="section-label">Recent form &amp; head-to-head</div>
 
   <!-- Form strings -->
-  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
-      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:10px;">
+      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; font-weight:600;">
         {{ fixture.home_team.name }} — Last 5 home
       </div>
       <div style="display:flex; gap:5px; flex-wrap:wrap;">
@@ -112,7 +115,7 @@
       </div>
     </div>
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
-      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:10px;">
+      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; font-weight:600;">
         {{ fixture.away_team.name }} — Last 5 away
       </div>
       <div style="display:flex; gap:5px; flex-wrap:wrap;">
@@ -126,20 +129,18 @@
   </div>
 
   <!-- Recent results side by side -->
-  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-
-    <!-- Home team recent -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
-      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px;">
+      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; font-weight:600;">
         {{ fixture.home_team.name }} — Recent
       </div>
       {% for r in home_history %}
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); font-size:12px;">
           <div style="color:var(--muted); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
             {% if r.is_home %}
-              <span style="color:var(--text);">{{ r.home_name }}</span> vs {{ r.away_name }}
+              <span style="color:var(--text); font-weight:500;">{{ r.home_name }}</span> vs {{ r.away_name }}
             {% else %}
-              {{ r.home_name }} vs <span style="color:var(--text);">{{ r.away_name }}</span>
+              {{ r.home_name }} vs <span style="color:var(--text); font-weight:500;">{{ r.away_name }}</span>
             {% endif %}
           </div>
           <div class="history-score {% if r.won %}win{% elif r.draw %}draw{% else %}loss{% endif %}">
@@ -151,18 +152,17 @@
       {% endfor %}
     </div>
 
-    <!-- Away team recent -->
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
-      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px;">
+      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; font-weight:600;">
         {{ fixture.away_team.name }} — Recent
       </div>
       {% for r in away_history %}
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); font-size:12px;">
           <div style="color:var(--muted); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
             {% if r.is_home %}
-              <span style="color:var(--text);">{{ r.home_name }}</span> vs {{ r.away_name }}
+              <span style="color:var(--text); font-weight:500;">{{ r.home_name }}</span> vs {{ r.away_name }}
             {% else %}
-              {{ r.home_name }} vs <span style="color:var(--text);">{{ r.away_name }}</span>
+              {{ r.home_name }} vs <span style="color:var(--text); font-weight:500;">{{ r.away_name }}</span>
             {% endif %}
           </div>
           <div class="history-score {% if r.won %}win{% elif r.draw %}draw{% else %}loss{% endif %}">
@@ -177,26 +177,26 @@
 
   <!-- H2H -->
   {% if h2h_results %}
-  <div style="margin-top:12px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
-    <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px;">
+  <div style="margin-top:10px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+    <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:14px; font-weight:600;">
       Head to Head — Last {{ h2h_results|length }}
     </div>
-    <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:12px;">
+    <div style="display:flex; gap:24px; flex-wrap:wrap; margin-bottom:14px;">
       <div style="text-align:center;">
-        <div style="font-family:var(--serif); font-size:1.6rem; color:var(--accent); line-height:1;">{{ h2h_home_wins }}</div>
-        <div style="font-family:var(--mono); font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-top:3px;">{{ fixture.home_team.name|truncatechars:10 }}</div>
+        <div style="font-family:var(--display); font-size:2rem; color:var(--accent); line-height:1; letter-spacing:0.02em;">{{ h2h_home_wins }}</div>
+        <div style="font-family:var(--mono); font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-top:4px; font-weight:600;">{{ fixture.home_team.name|truncatechars:10 }}</div>
       </div>
       <div style="text-align:center;">
-        <div style="font-family:var(--serif); font-size:1.6rem; color:var(--warn); line-height:1;">{{ h2h_draws }}</div>
-        <div style="font-family:var(--mono); font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-top:3px;">Draws</div>
+        <div style="font-family:var(--display); font-size:2rem; color:var(--warn); line-height:1; letter-spacing:0.02em;">{{ h2h_draws }}</div>
+        <div style="font-family:var(--mono); font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-top:4px; font-weight:600;">Draws</div>
       </div>
       <div style="text-align:center;">
-        <div style="font-family:var(--serif); font-size:1.6rem; color:var(--loss); line-height:1;">{{ h2h_away_wins }}</div>
-        <div style="font-family:var(--mono); font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-top:3px;">{{ fixture.away_team.name|truncatechars:10 }}</div>
+        <div style="font-family:var(--display); font-size:2rem; color:var(--loss); line-height:1; letter-spacing:0.02em;">{{ h2h_away_wins }}</div>
+        <div style="font-family:var(--mono); font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-top:4px; font-weight:600;">{{ fixture.away_team.name|truncatechars:10 }}</div>
       </div>
     </div>
     {% for r in h2h_results %}
-      <div style="display:flex; align-items:center; justify-content:center; gap:12px; padding:6px 0; border-bottom:1px solid var(--border); font-family:var(--mono); font-size:12px;">
+      <div style="display:flex; align-items:center; justify-content:center; gap:12px; padding:6px 0; border-bottom:1px solid var(--border); font-family:var(--mono); font-size:12px; font-weight:700; letter-spacing:0.04em;">
         <span style="color:{% if r.winner == 'home' %}var(--win){% elif r.winner == 'away' %}var(--loss){% else %}var(--warn){% endif %};">
           {{ r.home_score }}–{{ r.away_score }}
         </span>
@@ -208,17 +208,18 @@
 {% endif %}
 
 <!-- TEAM STATS -->
-<div style="margin-bottom:44px;">
+<div style="margin-bottom:48px;">
   <div class="section-label">Team statistics</div>
 
-  <div style="display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;">
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--surface);">
+    <!-- Header row -->
     <div style="padding:12px 16px; border-bottom:1px solid var(--border); border-right:1px solid var(--border);">
-      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted);">
+      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); font-weight:700;">
         {{ fixture.home_team.name }} (Home)
       </div>
     </div>
     <div style="padding:12px 16px; border-bottom:1px solid var(--border);">
-      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted);">
+      <div style="font-family:var(--mono); font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); font-weight:700;">
         {{ fixture.away_team.name }} (Away)
       </div>
     </div>
@@ -226,38 +227,38 @@
     {% with h=fixture.home_team a=fixture.away_team %}
     <div style="padding:14px 16px; border-bottom:1px solid var(--border); border-right:1px solid var(--border);">
       <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Goals scored / conceded</div>
-      <div style="font-family:var(--mono); font-size:14px;">{{ h.home_avg_goals_for|floatformat:2 }}<span style="color:var(--dim);">/</span>{{ h.home_avg_goals_against|floatformat:2 }}</div>
+      <div style="font-family:var(--mono); font-size:14px; font-weight:700; letter-spacing:0.04em;">{{ h.home_avg_goals_for|floatformat:2 }}<span style="color:var(--dim);">/</span>{{ h.home_avg_goals_against|floatformat:2 }}</div>
     </div>
     <div style="padding:14px 16px; border-bottom:1px solid var(--border);">
       <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Goals scored / conceded</div>
-      <div style="font-family:var(--mono); font-size:14px;">{{ a.away_avg_goals_for|floatformat:2 }}<span style="color:var(--dim);">/</span>{{ a.away_avg_goals_against|floatformat:2 }}</div>
+      <div style="font-family:var(--mono); font-size:14px; font-weight:700; letter-spacing:0.04em;">{{ a.away_avg_goals_for|floatformat:2 }}<span style="color:var(--dim);">/</span>{{ a.away_avg_goals_against|floatformat:2 }}</div>
     </div>
 
     <div style="padding:14px 16px; border-bottom:1px solid var(--border); border-right:1px solid var(--border);">
       <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Corners for / against</div>
-      <div style="font-family:var(--mono); font-size:14px;">{{ h.home_avg_corners_for|floatformat:1 }}<span style="color:var(--dim);">/</span>{{ h.home_avg_corners_against|floatformat:1 }}</div>
+      <div style="font-family:var(--mono); font-size:14px; font-weight:700; letter-spacing:0.04em;">{{ h.home_avg_corners_for|floatformat:1 }}<span style="color:var(--dim);">/</span>{{ h.home_avg_corners_against|floatformat:1 }}</div>
     </div>
     <div style="padding:14px 16px; border-bottom:1px solid var(--border);">
       <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Corners for / against</div>
-      <div style="font-family:var(--mono); font-size:14px;">{{ a.away_avg_corners_for|floatformat:1 }}<span style="color:var(--dim);">/</span>{{ a.away_avg_corners_against|floatformat:1 }}</div>
+      <div style="font-family:var(--mono); font-size:14px; font-weight:700; letter-spacing:0.04em;">{{ a.away_avg_corners_for|floatformat:1 }}<span style="color:var(--dim);">/</span>{{ a.away_avg_corners_against|floatformat:1 }}</div>
     </div>
 
     <div style="padding:14px 16px; border-bottom:1px solid var(--border); border-right:1px solid var(--border);">
       <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Home win rate</div>
-      <div style="font-family:var(--mono); font-size:14px; color:var(--accent);">{% widthratio h.home_win_rate 1 100 %}%</div>
+      <div style="font-family:var(--mono); font-size:14px; font-weight:700; color:var(--accent); letter-spacing:0.04em;">{% widthratio h.home_win_rate 1 100 %}%</div>
     </div>
     <div style="padding:14px 16px; border-bottom:1px solid var(--border);">
       <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Away win rate</div>
-      <div style="font-family:var(--mono); font-size:14px; color:var(--accent);">{% widthratio a.away_win_rate 1 100 %}%</div>
+      <div style="font-family:var(--mono); font-size:14px; font-weight:700; color:var(--accent); letter-spacing:0.04em;">{% widthratio a.away_win_rate 1 100 %}%</div>
     </div>
 
     <div style="padding:14px 16px; border-right:1px solid var(--border);">
       <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">BTTS rate (home)</div>
-      <div style="font-family:var(--mono); font-size:14px;">{% widthratio h.home_btts_rate 1 100 %}%</div>
+      <div style="font-family:var(--mono); font-size:14px; font-weight:700; letter-spacing:0.04em;">{% widthratio h.home_btts_rate 1 100 %}%</div>
     </div>
     <div style="padding:14px 16px;">
       <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">BTTS rate (away)</div>
-      <div style="font-family:var(--mono); font-size:14px;">{% widthratio a.away_btts_rate 1 100 %}%</div>
+      <div style="font-family:var(--mono); font-size:14px; font-weight:700; letter-spacing:0.04em;">{% widthratio a.away_btts_rate 1 100 %}%</div>
     </div>
     {% endwith %}
   </div>
@@ -265,13 +266,13 @@
 
 <!-- SKIPPED MARKETS -->
 {% if skipped %}
-  <div style="margin-bottom:44px;">
+  <div style="margin-bottom:48px;">
     <div class="section-label">Markets skipped</div>
     {% for pred in skipped %}
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;
-                  padding:11px 0; border-bottom:1px solid var(--border);">
+                  padding:12px 0; border-bottom:1px solid var(--border);">
         <div style="font-size:13px; color:var(--muted);">{{ pred.get_market_display }}</div>
-        <div style="font-family:var(--mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--dim);">
+        <div style="font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--dim); font-weight:600;">
           {{ pred.get_skipped_reason_display }}
         </div>
       </div>

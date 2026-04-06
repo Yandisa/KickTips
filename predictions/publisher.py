@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 MAX_PER_FIXTURE = 2
 CONFIDENCE_THRESHOLD = 65.0  # Safety net — matches MIN_CONFIDENCE in engine
 
-MARKET_ROTATION = ["ou_goals", "btts", "1x2", "corners", "dc"]
+MARKET_ROTATION = ["btts", "ou_goals", "dc", "corners", "1x2"]
 
 CONFIDENCE_BAND = 3.0
 

@@ -420,7 +420,9 @@ def donate(request):
 def winners(request):
     return render(request, 'website/winners.html')
 
-
+def review(request):
+  # Standalone review / feedback page. Data in localStorage.
+  return render(request, 'website/review.html')
 
 def accumulators(request):
     """

@@ -106,10 +106,12 @@ class Command(BaseCommand):
                 if fs_match_id:
                     stats = fetch_fixture_stats(fs_match_id)
                     if stats:
-                        corners = stats.get("corner_kicks", 0)
-                        cards   = stats.get("yellow_cards", 0) + stats.get("red_cards", 0)
-                        fixture.total_corners = corners
-                        fixture.total_cards   = cards
+                        corners = stats.get("corner_kicks") or 0
+                        cards   = (stats.get("yellow_cards") or 0) + (stats.get("red_cards") or 0)
+                        if corners > 0:
+                            fixture.total_corners = corners
+                        if cards > 0:
+                            fixture.total_cards = cards
                         fixture.save(update_fields=["total_corners", "total_cards"])
 
             for pred in predictions:

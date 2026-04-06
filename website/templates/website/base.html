@@ -3,10 +3,117 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>{% block title %}KickTips — Free Soccer Predictions{% endblock %}</title>
+
+  <!-- ══════════════════════════════════════════════════════
+       PRIMARY SEO
+  ══════════════════════════════════════════════════════ -->
+  <title>{% block title %}KickTips — Free Daily Soccer Predictions{% endblock %}</title>
+  <meta name="description"        content="{% block meta_desc %}Free, automated soccer predictions across top leagues. Every tip published, every result tracked. No subscriptions, no hype.{% endblock %}">
+  <meta name="keywords"           content="{% block meta_keys %}soccer predictions, football tips, free soccer tips, accumulator tips, faka yonke, shaya zonke, istimela, south africa betting tips, kicktips{% endblock %}">
+  <meta name="robots"             content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="author"             content="KickTips">
+  <link rel="canonical"           href="https://kicktips.co.za{% block canonical_path %}/{% endblock %}">
+
+  <!-- ══════════════════════════════════════════════════════
+       OPEN GRAPH (Facebook / WhatsApp)
+  ══════════════════════════════════════════════════════ -->
+  <meta property="og:type"        content="website">
+  <meta property="og:site_name"   content="KickTips">
+  <meta property="og:title"       content="{% block og_title %}KickTips — Free Daily Soccer Predictions{% endblock %}">
+  <meta property="og:description" content="{% block og_desc %}Automated, transparent soccer tips. Every prediction published. Every result tracked. Free forever.{% endblock %}">
+  <meta property="og:url"         content="https://kicktips.co.za{% block og_path %}/{% endblock %}">
+  <meta property="og:image"       content="https://kicktips.co.za/static/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height"content="630">
+  <meta property="og:locale"      content="en_ZA">
+
+  <!-- ══════════════════════════════════════════════════════
+       TWITTER / X CARD
+  ══════════════════════════════════════════════════════ -->
+  <meta name="twitter:card"        content="summary_large_image">
+  <meta name="twitter:title"       content="{% block tw_title %}KickTips — Free Soccer Predictions{% endblock %}">
+  <meta name="twitter:description" content="{% block tw_desc %}Free automated soccer tips. Fully transparent record. No subscriptions.{% endblock %}">
+  <meta name="twitter:image"       content="https://kicktips.co.za/static/og-image.png">
+
+  <!-- ══════════════════════════════════════════════════════
+       GEO / REGIONAL
+  ══════════════════════════════════════════════════════ -->
+  <meta name="geo.region"          content="ZA">
+  <meta name="geo.placename"       content="South Africa">
+  <meta name="language"            content="English">
+
+  <!-- ══════════════════════════════════════════════════════
+       PWA / APP
+  ══════════════════════════════════════════════════════ -->
+  <meta name="theme-color"         content="#060608">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="KickTips">
+  <link rel="manifest"             href="/static/manifest.json">
+
+  <!-- ══════════════════════════════════════════════════════
+       FAVICON CHAIN (all sizes)
+  ══════════════════════════════════════════════════════ -->
+  <link rel="icon"             type="image/png" sizes="32x32" href="/static/favicon-32.png">
+  <link rel="icon"             type="image/png" sizes="16x16" href="/static/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180"                href="/static/apple-touch-icon.png">
+
+  <!-- ══════════════════════════════════════════════════════
+       STRUCTURED DATA — Site-wide (WebSite + Organization)
+  ══════════════════════════════════════════════════════ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://kicktips.co.za/#website",
+        "url": "https://kicktips.co.za/",
+        "name": "KickTips",
+        "description": "Free automated soccer predictions. Every tip published, every result tracked.",
+        "inLanguage": "en-ZA",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://kicktips.co.za/matches/?date={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://kicktips.co.za/#organization",
+        "name": "KickTips",
+        "url": "https://kicktips.co.za/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://kicktips.co.za/static/logo.png",
+          "width": 400,
+          "height": 120
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "email": "info@kicktips.co.za",
+          "contactType": "customer support",
+          "availableLanguage": "English"
+        },
+        "sameAs": []
+      }
+    ]
+  }
+  </script>
+
+  {% block extra_structured_data %}{% endblock %}
+
+  <!-- ══════════════════════════════════════════════════════
+       FONTS
+  ══════════════════════════════════════════════════════ -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Barlow+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <style>
     :root {
       --bg:         #060608;
@@ -32,89 +139,50 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--sans);
-      font-size: 15px;
-      font-weight: 400;
-      line-height: 1.6;
-      min-height: 100vh;
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); font-size: 15px; font-weight: 400;
+      line-height: 1.6; min-height: 100vh;
     }
     a { color: inherit; text-decoration: none; }
 
     body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
+      content: ''; position: fixed; inset: 0;
       background-image:
         repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.012) 59px, rgba(255,255,255,0.012) 60px),
         repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.008) 59px, rgba(255,255,255,0.008) 60px);
-      pointer-events: none;
-      z-index: 0;
+      pointer-events: none; z-index: 0;
     }
     body > * { position: relative; z-index: 1; }
 
     /* ── NAV ── */
     nav {
-      position: sticky;
-      top: 0;
-      z-index: 200;
+      position: sticky; top: 0; z-index: 200;
       background: rgba(6,6,8,0.97);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border);
-      height: 58px;
-      display: flex;
-      align-items: center;
-      padding: 0 20px;
+      height: 58px; display: flex; align-items: center; padding: 0 20px;
     }
-    .nav-brand {
-      font-family: var(--display);
-      font-size: 1.6rem;
-      letter-spacing: 0.04em;
-      color: var(--text);
-      flex-shrink: 0;
-      margin-right: auto;
-      line-height: 1;
-    }
+    .nav-brand { font-family: var(--display); font-size: 1.6rem; letter-spacing: 0.04em; color: var(--text); flex-shrink: 0; margin-right: auto; line-height: 1; }
     .nav-brand em { font-style: normal; color: var(--accent); }
     .nav-links { display: flex; gap: 0; align-items: center; }
     .nav-links a {
-      font-family: var(--mono);
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-      padding: 8px 12px;
-      transition: color 0.15s;
-      white-space: nowrap;
-      position: relative;
+      font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); padding: 8px 12px;
+      transition: color 0.15s; white-space: nowrap; position: relative;
     }
     .nav-links a::after {
-      content: '';
-      position: absolute;
-      bottom: -1px; left: 12px; right: 12px;
-      height: 2px;
-      background: var(--accent);
-      transform: scaleX(0);
-      transition: transform 0.15s;
+      content: ''; position: absolute; bottom: -1px; left: 12px; right: 12px;
+      height: 2px; background: var(--accent); transform: scaleX(0); transition: transform 0.15s;
     }
     .nav-links a:hover { color: var(--text); }
     .nav-links a:hover::after { transform: scaleX(1); }
     .nav-links a.active { color: var(--accent); }
     .nav-links a.active::after { transform: scaleX(1); }
-    /* Donate pill in nav */
     .nav-donate {
-      margin-left: 8px;
-      background: var(--accent) !important;
-      color: #060608 !important;
-      padding: 7px 14px !important;
-      border-radius: var(--radius);
-      font-family: var(--mono) !important;
-      font-size: 11px !important;
-      font-weight: 700 !important;
-      letter-spacing: 0.1em !important;
+      margin-left: 8px; background: var(--accent) !important; color: #060608 !important;
+      padding: 7px 14px !important; border-radius: var(--radius);
+      font-family: var(--mono) !important; font-size: 11px !important;
+      font-weight: 700 !important; letter-spacing: 0.1em !important;
       transition: background 0.15s, transform 0.15s !important;
     }
     .nav-donate::after { display: none !important; }
@@ -122,146 +190,46 @@
 
     /* ── WINNERS TICKER ── */
     .winners-ticker {
-      width: 100%;
-      background: rgba(74,240,160,0.05);
+      width: 100%; background: rgba(74,240,160,0.05);
       border-bottom: 1px solid rgba(74,240,160,0.14);
-      overflow: hidden;
-      height: 34px;
-      display: flex;
-      align-items: center;
-      position: relative;
-      z-index: 190;
+      overflow: hidden; height: 34px; display: flex; align-items: center;
+      position: relative; z-index: 190;
     }
     .ticker-label {
-      flex-shrink: 0;
-      padding: 0 14px;
-      height: 100%;
-      display: flex;
-      align-items: center;
+      flex-shrink: 0; padding: 0 14px; height: 100%;
+      display: flex; align-items: center;
       border-right: 1px solid rgba(74,240,160,0.18);
       background: rgba(74,240,160,0.07);
-      font-family: var(--mono);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--win);
-      white-space: nowrap;
+      font-family: var(--mono); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; color: var(--win); white-space: nowrap;
     }
-    .ticker-track {
-      flex: 1;
-      overflow: hidden;
-      position: relative;
-      height: 100%;
-    }
+    .ticker-track { flex: 1; overflow: hidden; position: relative; height: 100%; }
     .ticker-inner {
-      display: inline-flex;
-      align-items: center;
-      height: 100%;
-      white-space: nowrap;
+      display: inline-flex; align-items: center; height: 100%; white-space: nowrap;
       animation: tickerScroll 32s linear infinite;
     }
     .ticker-inner:hover { animation-play-state: paused; cursor: default; }
-    @keyframes tickerScroll {
-      0%   { transform: translateX(0); }
-      100% { transform: translateX(-50%); }
-    }
-    .ticker-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding-right: 32px;
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text);
-      letter-spacing: 0.02em;
-    }
-    .ticker-bullet {
-      width: 5px; height: 5px;
-      border-radius: 50%;
-      background: var(--win);
-      flex-shrink: 0;
-    }
-    .ticker-name   { color: var(--text); font-weight: 700; }
-    .ticker-amount { color: var(--win);  font-weight: 700; }
+    @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+    .ticker-item { display: inline-flex; align-items: center; gap: 6px; padding-right: 32px; font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: 0.02em; }
+    .ticker-bullet { width: 5px; height: 5px; border-radius: 50%; background: var(--win); flex-shrink: 0; }
+    .ticker-amount { color: var(--win); font-weight: 700; }
     .ticker-acca   { color: var(--accent); }
     .ticker-msg    { color: var(--muted); font-style: italic; font-weight: 400; }
     .ticker-sep    { display: inline-block; width: 1px; height: 12px; background: rgba(255,255,255,0.1); margin-right: 24px; vertical-align: middle; }
-    .ticker-share {
-      flex-shrink: 0;
-      padding: 0 12px;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      border-left: 1px solid rgba(74,240,160,0.18);
-    }
-    .ticker-share a {
-      font-family: var(--mono);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--win);
-      opacity: 0.65;
-      transition: opacity 0.15s;
-    }
+    .ticker-share  { flex-shrink: 0; padding: 0 12px; height: 100%; display: flex; align-items: center; border-left: 1px solid rgba(74,240,160,0.18); }
+    .ticker-share a { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--win); opacity: 0.65; transition: opacity 0.15s; }
     .ticker-share a:hover { opacity: 1; }
 
     /* ── CONTAINER ── */
-    .container {
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 32px 20px 80px;
-      animation: fadein 0.3s ease;
-    }
+    .container { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; animation: fadein 0.3s ease; }
 
-    .page-eyebrow {
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 8px;
-      font-weight: 600;
-    }
-    .page-title {
-      font-family: var(--display);
-      font-size: clamp(2.8rem, 7vw, 5rem);
-      line-height: 0.95;
-      letter-spacing: 0.02em;
-      color: var(--text);
-      margin-bottom: 16px;
-      text-transform: uppercase;
-    }
-    .page-sub {
-      font-size: 15px;
-      font-weight: 300;
-      color: var(--muted);
-      line-height: 1.7;
-      max-width: 500px;
-    }
-    .section-label {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--muted);
-      font-weight: 600;
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 16px;
-    }
+    .page-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; font-weight: 600; }
+    .page-title { font-family: var(--display); font-size: clamp(2.8rem, 7vw, 5rem); line-height: 0.95; letter-spacing: 0.02em; color: var(--text); margin-bottom: 16px; text-transform: uppercase; }
+    .page-sub { font-size: 15px; font-weight: 300; color: var(--muted); line-height: 1.7; max-width: 500px; }
+    .section-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
     .rule { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
 
-    .stat-row {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      background: var(--surface);
-    }
+    .stat-row { display: grid; grid-template-columns: repeat(2, 1fr); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
     .stat-cell { padding: 20px 18px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
     .stat-cell:nth-child(2n) { border-right: none; }
     .stat-cell:nth-last-child(-n+2) { border-bottom: none; }
@@ -271,14 +239,7 @@
     .stat-cell .val.loss   { color: var(--loss); }
     .stat-cell .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 
-    .tip-chip {
-      display: inline-block;
-      font-family: var(--mono); font-size: 11px; font-weight: 700;
-      padding: 4px 10px;
-      background: var(--accent-dim); color: var(--accent);
-      border: 1px solid rgba(232,255,71,0.25);
-      border-radius: 2px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
-    }
+    .tip-chip { display: inline-block; font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 4px 10px; background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(232,255,71,0.25); border-radius: 2px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
     .tip-chip.muted { background: transparent; color: var(--dim); border-color: var(--border); }
 
     .conf-track { height: 2px; background: var(--dim); border-radius: 1px; overflow: hidden; }
@@ -332,7 +293,7 @@
     .accordion[open] summary { color: var(--accent); }
     .accordion-body { padding: 4px 0 20px; }
 
-    .form-badge { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 2px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0; }
+    .form-badge { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 2px; font-family: var(--mono); font-size: 11px; font-weight: 700; }
     .form-badge.W { background: rgba(74,240,160,0.15); color: var(--win); }
     .form-badge.D { background: rgba(255,179,64,0.12);  color: var(--warn); }
     .form-badge.L { background: rgba(255,85,102,0.12);  color: var(--loss); }
@@ -342,10 +303,14 @@
     .history-score.draw { color: var(--warn); }
     .history-score.loss { color: var(--loss); }
 
+    /* ── FOOTER ── */
     footer { border-top: 1px solid var(--border); padding: 24px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: var(--surface); }
     footer .brand { font-family: var(--display); font-size: 1.4rem; letter-spacing: 0.04em; color: var(--text); line-height: 1; }
     footer .brand em { font-style: normal; color: var(--accent); }
     footer .legal { font-size: 11px; color: var(--muted); max-width: 420px; line-height: 1.5; text-align: right; }
+    .footer-builder { font-size: 10px; color: var(--dim); margin-top: 6px; text-align: right; }
+    .footer-builder a { color: var(--dim); transition: color 0.15s; }
+    .footer-builder a:hover { color: var(--muted); }
 
     @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
@@ -368,6 +333,7 @@
       .nav-donate { display: none; }
       footer { flex-direction: column; text-align: center; }
       footer .legal { text-align: center; max-width: 100%; }
+      .footer-builder { text-align: center; }
     }
   </style>
   {% block extra_css %}{% endblock %}
@@ -375,50 +341,64 @@
 <body>
 
 <nav>
-  <div class="nav-brand">KICK<em>TIPS</em></div>
-  <div class="nav-links">
-    <a href="{% url 'home' %}"         {% if request.resolver_match.url_name == 'home'         %}class="active"{% endif %}>Home</a>
-    <a href="{% url 'matches' %}"      {% if request.resolver_match.url_name == 'matches'      %}class="active"{% endif %}>Matches</a>
-    <a href="{% url 'record' %}"       {% if request.resolver_match.url_name == 'record'       %}class="active"{% endif %}>Record</a>
-    <a href="{% url 'accumulators' %}" {% if request.resolver_match.url_name == 'accumulators' %}class="active"{% endif %}>Accas</a>
-    <a href="{% url 'winners' %}"      {% if request.resolver_match.url_name == 'winners'      %}class="active"{% endif %}>Winners</a>
+  <a href="{% url 'home' %}" class="nav-brand" aria-label="KickTips home">KICK<em>TIPS</em></a>
+  <nav class="nav-links" aria-label="Main navigation">
+    <a href="{% url 'home' %}"         {% if request.resolver_match.url_name == 'home'         %}class="active" aria-current="page"{% endif %}>Home</a>
+    <a href="{% url 'matches' %}"      {% if request.resolver_match.url_name == 'matches'      %}class="active" aria-current="page"{% endif %}>Matches</a>
+    <a href="{% url 'record' %}"       {% if request.resolver_match.url_name == 'record'       %}class="active" aria-current="page"{% endif %}>Record</a>
+    <a href="{% url 'accumulators' %}" {% if request.resolver_match.url_name == 'accumulators' %}class="active" aria-current="page"{% endif %}>Accas</a>
+    <a href="{% url 'winners' %}"      {% if request.resolver_match.url_name == 'winners'      %}class="active" aria-current="page"{% endif %}>Winners</a>
     <a href="{% url 'donate' %}" class="nav-donate">Donate</a>
-  </div>
+  </nav>
 </nav>
 
-<!-- WINNERS TICKER — powered by localStorage, updates live across tabs -->
-<div class="winners-ticker">
+<!-- WINNERS TICKER -->
+<div class="winners-ticker" role="marquee" aria-label="Recent winners">
   <div class="ticker-label">Winners</div>
   <div class="ticker-track">
-    <div class="ticker-inner" id="tickerInner"><!-- JS --></div>
+    <div class="ticker-inner" id="tickerInner" aria-hidden="true"><!-- JS --></div>
   </div>
   <div class="ticker-share">
     <a href="{% url 'winners' %}">Share your win</a>
   </div>
 </div>
 
-<div class="container">
+<main class="container" id="main-content">
   {% block content %}{% endblock %}
-</div>
+</main>
 
-<footer>
-  <div class="brand">KICK<em>TIPS</em></div>
+<footer role="contentinfo">
+  <div>
+    <div class="brand">KICK<em>TIPS</em></div>
+    <div style="margin-top:8px; font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:0.06em;">
+      <a href="mailto:info@kicktips.co.za" style="transition:color 0.15s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">info@kicktips.co.za</a>
+    </div>
+  </div>
   <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
     <a href="{% url 'winners' %}" class="btn btn-win"    style="font-size:11px; padding:8px 18px;">Share a Win</a>
+    <a href="{% url 'review' %}"  class="btn btn-ghost"  style="font-size:11px; padding:8px 18px;">Leave a Review</a>
     <a href="{% url 'donate' %}"  class="btn btn-accent" style="font-size:11px; padding:8px 18px;">Donate</a>
   </div>
-  <div class="legal">
-    18+ only. Predictions are automated data-driven estimates, not guarantees.
-    Every tip published. Every result recorded publicly. Bet responsibly.
+  <div>
+    <div class="legal">
+      18+ only. Predictions are automated data-driven estimates, not guarantees.
+      Every tip published. Every result recorded publicly. Bet responsibly.
+    </div>
+    <div class="footer-builder">
+      Built with care by <a href="https://www.ygengineering.co.za" target="_blank" rel="noopener">YG Engineering</a>
+    </div>
   </div>
 </footer>
 
 <script>
-// ─────────────────────────────────────────────────────────────
-//  KickTips Winners Ticker
-//  Wins submitted on the /winners/ page are saved to
-//  localStorage under 'kt_winners' and read back here.
-// ─────────────────────────────────────────────────────────────
+// ── XSS-safe helper ───────────────────────────────────────────
+function esc(s) {
+  const d = document.createElement('span');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+// ── Winners Ticker ────────────────────────────────────────────
 const SEED_WINNERS = [
   { name:"Themba",  amount:"R850",   acca:"Faka Yonke",  msg:"" },
   { name:"Lerato",  amount:"R2 400", acca:"Shaya Zonke", msg:"" },
@@ -433,8 +413,10 @@ const SEED_WINNERS = [
 function getWinners() {
   try {
     const raw = localStorage.getItem('kt_winners');
+    // Validate: must be an array, cap at 200 items to prevent DoS
     const user = raw ? JSON.parse(raw) : [];
-    return [...user, ...SEED_WINNERS];
+    if (!Array.isArray(user)) return SEED_WINNERS;
+    return [...user.slice(0, 200), ...SEED_WINNERS];
   } catch(e) { return SEED_WINNERS; }
 }
 
@@ -443,36 +425,21 @@ function renderTicker() {
   if (!el) return;
   const wins = getWinners();
   if (!wins.length) return;
-
-  // Double the list so the loop is seamless
   let html = '';
   [0,1].forEach(() => {
     wins.forEach(w => {
-      const msgPart = w.msg
-        ? `<span class="ticker-msg">&nbsp;"${w.msg}"</span>`
-        : '';
-      html += `<span class="ticker-item">
-        <span class="ticker-bullet"></span>
-        <span class="ticker-name">${w.name}</span>&nbsp;won&nbsp;
-        <span class="ticker-amount">${w.amount}</span>&nbsp;with&nbsp;
-        <span class="ticker-acca">${w.acca}</span>${msgPart}
-      </span><span class="ticker-sep"></span>`;
+      const msgPart = w.msg ? `<span class="ticker-msg">&nbsp;"${esc(w.msg)}"</span>` : '';
+      html += `<span class="ticker-item"><span class="ticker-bullet"></span><strong>${esc(w.name)}</strong>&nbsp;won&nbsp;<span class="ticker-amount">${esc(w.amount)}</span>&nbsp;with&nbsp;<span class="ticker-acca">${esc(w.acca)}</span>${msgPart}</span><span class="ticker-sep"></span>`;
     });
   });
   el.innerHTML = html;
-
-  // Calibrate speed: ~80px per second baseline
   const totalWidth = el.scrollWidth / 2;
   const dur = Math.max(18, Math.round(totalWidth / 80));
   el.style.animationDuration = dur + 's';
 }
 
 document.addEventListener('DOMContentLoaded', renderTicker);
-
-// Live update if winner submitted in another tab
-window.addEventListener('storage', e => {
-  if (e.key === 'kt_winners') renderTicker();
-});
+window.addEventListener('storage', e => { if (e.key === 'kt_winners') renderTicker(); });
 </script>
 
 </body>

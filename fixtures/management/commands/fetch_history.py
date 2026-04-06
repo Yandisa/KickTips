@@ -1,31 +1,3 @@
-"""
-fetch_history — Daily history backfill for upcoming fixtures
-=============================================================
-Run this ONCE PER DAY before fetch_fixtures + run_predictions.
-
-What it does:
-    1. Finds all teams with fixtures in the next 7 days
-    2. For each team, checks how many finished Fixture rows already exist in DB
-    3. If fewer than MIN_MATCHES (6), fetches results from API until we have 6+
-    4. Fetches match stats (corners, xG, cards) for newly stored fixtures
-    5. Recomputes Team stats from the stored Fixture rows
-
-API budget (worst case — fresh install, 30 teams playing this week):
-    30 teams × 1 results page   =  30 calls
-    30 teams × 6 stat calls     = 180 calls
-    Total                       = 210 calls  (~1% of PRO 20k/month)
-
-    On subsequent days, teams already at 6+ matches are skipped entirely.
-    Typical daily cost after day 1: < 20 calls.
-
-Scheduler — add to scheduler.py evening_pipeline() BEFORE fetch_fixtures:
-    call_command("fetch_history")
-    call_command("fetch_fixtures", tomorrow=True)
-    call_command("run_predictions", date=tomorrow)
-
-Place at: kicktips/fixtures/management/commands/fetch_history.py
-"""
-
 import logging
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -38,12 +10,12 @@ from fixtures import api_client
 
 logger = logging.getLogger(__name__)
 
-MIN_MATCHES = 6    # minimum historical matches we want per team in DB
-STAT_LIMIT  = 6    # per-match stat API calls per team (corners/xG/cards)
+MIN_MATCHES = 10    # minimum historical matches we want per team in DB
+STAT_LIMIT  = 12    # per-match stat API calls per team (corners/xG/cards)
 LOOK_AHEAD  = 7    # days ahead to scan for upcoming fixtures
 
-DELAY_STAT  = 0.4  # seconds between match stat calls
-DELAY_TEAM  = 0.8  # seconds between teams
+DELAY_STAT  = 1  # seconds between match stat calls
+DELAY_TEAM  = 1  # seconds between teams
 
 
 class Command(BaseCommand):

@@ -171,7 +171,7 @@ class Command(BaseCommand):
             logger.debug("Standings fetch failed for %s: %s", match_id, exc)
         time.sleep(ENRICHMENT_DELAY)
 
-        for sub_type in ("2.5",):
+        for sub_type in ("1.5", "2.5", "3.5"):
             try:
                 ou_data = api_client.fetch_match_over_under(match_id, sub_type=sub_type)
                 if ou_data:
@@ -319,7 +319,7 @@ class Command(BaseCommand):
             results = p1 + p2
 
             if results and len(results) >= 5:
-                corner_stat_matches = 3
+                corner_stat_matches = 6
                 enriched = 0
                 for r in results[:corner_stat_matches]:
                     mid = r.get("match_id")

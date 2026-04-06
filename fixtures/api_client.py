@@ -302,7 +302,7 @@ def fetch_match_odds(match_id: str) -> dict:
     if not isinstance(data, list):
         return {}
 
-    collected = {"1x2": [], "ou_goals": {}, "btts": [], "ou_corners": {}}
+    collected = {"1x2": [], "ou_goals": {}, "btts": [], "ou_corners": {}, "dc": []}
 
     for bookmaker in data:
         bk_odds = bookmaker.get("odds") or []
@@ -378,6 +378,34 @@ def fetch_match_odds(match_id: str) -> dict:
                 if yes_v and no_v:
                     collected["btts"].append({"yes": yes_v, "no": no_v})
 
+            # ── Double Chance ──────────────────────────────────────────────
+            # Confirmed API mapping (from real response):
+            #   null participant  → "12" (Home or Away — no draw)
+            #   home participant  → "1x" (Home or Draw)
+            #   away participant  → "x2" (Away or Draw)
+            elif btype == "DOUBLE_CHANCE":
+                null_v = home_v = away_v = None
+                participant_vals = []
+                for o in odds_list:
+                    if not o.get("active"):
+                        continue
+                    v   = _safe_float(o.get("value"))
+                    pid = o.get("eventParticipantId")
+                    if v is None:
+                        continue
+                    if pid is None:
+                        null_v = v          # null participant = 12
+                    else:
+                        participant_vals.append(v)
+                if len(participant_vals) >= 2:
+                    home_v, away_v = participant_vals[0], participant_vals[1]
+                if null_v and home_v and away_v:
+                    collected["dc"].append({
+                        "12": null_v,   # Home or Away
+                        "1x": home_v,   # Home or Draw
+                        "x2": away_v,   # Away or Draw
+                    })
+
     # ── Average across bookmakers ─────────────────────────────────────────
     result = {}
 
@@ -404,6 +432,14 @@ def fetch_match_odds(match_id: str) -> dict:
         result["btts"] = {
             "yes": round(sum(x["yes"] for x in collected["btts"]) / n, 3),
             "no":  round(sum(x["no"]  for x in collected["btts"]) / n, 3),
+        }
+
+    if collected["dc"]:
+        n = len(collected["dc"])
+        result["dc"] = {
+            "12": round(sum(x["12"] for x in collected["dc"]) / n, 3),
+            "1x": round(sum(x["1x"] for x in collected["dc"]) / n, 3),
+            "x2": round(sum(x["x2"] for x in collected["dc"]) / n, 3),
         }
 
     logger.info("[Odds] match=%s markets=%s", match_id, list(result.keys()))
@@ -605,46 +641,73 @@ def fetch_head_to_head(match_id: str, *args, last: int = 8, **kwargs) -> List[di
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_fixture_stats(match_id: str) -> dict:
-    """Cost: 1 call per finished match."""
+    """
+    Cost: 1 call per finished match.
+
+    API returns a dict with keys: "match", "1st-half", "2nd-half".
+    We read from the "match" block only (full-match totals).
+    Previous code checked isinstance(data, list) which always failed — fixed.
+    """
     if not match_id:
         return {}
 
     data = _get("/api/flashscore/v2/matches/match/stats", {"match_id": match_id})
-    if not isinstance(data, list):
+    if not isinstance(data, dict):
+        return {}
+
+    # Use full-match block only — avoids duplicates from half-time sub-blocks
+    stats_list = data.get("match") or []
+    if not stats_list:
         return {}
 
     result = {
-        "corner_kicks": 0,       # total (home + away) — kept for grade_results
-        "home_corners": 0,        # home team corners — for team corner averages
-        "away_corners": 0,        # away team corners — for team corner averages
+        "corner_kicks": 0,    # total (home + away) — kept for grade_results
+        "home_corners": None, # home team corners — None until we see real data
+        "away_corners": None, # away team corners — None until we see real data
         "yellow_cards": 0,
-        "red_cards": 0,
-        "xg_home": 0.0,
-        "xg_away": 0.0,
+        "red_cards":    0,
+        "xg_home":      0.0,
+        "xg_away":      0.0,
+        "xgot_home":    0.0,  # xG on target — better signal than raw xG
+        "xgot_away":    0.0,
+        "shots_home":   0,
+        "shots_away":   0,
     }
 
-    seen_corner = False  # API duplicates stats across match/1st-half/2nd-half blocks;
-                         # only take the first "corner kicks" entry (full-match total)
-    for stat in data:
-        name = (stat.get("name") or "").lower()
+    seen_corner = False
+    seen_xg     = False
+    seen_xgot   = False
+
+    for stat in stats_list:
+        name = (stat.get("name") or "").lower().strip()
         h = stat.get("home_team", 0) or 0
         a = stat.get("away_team", 0) or 0
         try:
             if "corner" in name and not seen_corner:
-                result["home_corners"]  = int(h)
-                result["away_corners"]  = int(a)
-                result["corner_kicks"]  = int(h) + int(a)
+                result["home_corners"] = int(h)
+                result["away_corners"] = int(a)
+                result["corner_kicks"] = int(h) + int(a)
                 seen_corner = True
             elif "yellow card" in name:
                 result["yellow_cards"] = int(h) + int(a)
             elif "red card" in name:
                 result["red_cards"] = int(h) + int(a)
-            elif "expected goals" in name and result["xg_home"] == 0.0:
+            elif "xg on target" in name and not seen_xgot:
+                result["xgot_home"] = float(h)
+                result["xgot_away"] = float(a)
+                seen_xgot = True
+            elif "expected goals" in name and not seen_xg:
                 result["xg_home"] = float(h)
                 result["xg_away"] = float(a)
+                seen_xg = True
+            elif "total shots" in name and result["shots_home"] == 0:
+                result["shots_home"] = int(h)
+                result["shots_away"] = int(a)
         except (TypeError, ValueError):
             pass
 
+    # Normalise: if corners were never found, leave as None so callers know
+    # the data is absent rather than genuinely zero.
     return result
 
 

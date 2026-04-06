@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+Allow: /matches/
+Allow: /record/
+Allow: /accumulators/
+Allow: /winners/
+Allow: /donate/
+
+# Block admin and API internals
+Disallow: /admin/
+Disallow: /api/
+Disallow: /static/admin/
+
+# Block query strings that create duplicate content
+Disallow: /*?date=*&league=*&confidence=*
+Disallow: /matches/?sort=
+
+Crawl-delay: 5
+
+Sitemap: https://kicktips.co.za/sitemap.xml

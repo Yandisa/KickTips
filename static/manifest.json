@@ -1,0 +1,70 @@
+{
+  "name": "KickTips — Free Soccer Predictions",
+  "short_name": "KickTips",
+  "description": "Free automated soccer predictions. Every tip published, every result tracked.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#060608",
+  "theme_color": "#060608",
+  "orientation": "portrait-primary",
+  "lang": "en-ZA",
+  "scope": "/",
+  "categories": ["sports", "entertainment"],
+  "icons": [
+    {
+      "src": "/static/icons/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/static/screenshots/home.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "KickTips Home — Today's Predictions"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Today's Matches",
+      "short_name": "Matches",
+      "description": "View today's predictions",
+      "url": "/matches/",
+      "icons": [{ "src": "/static/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Accumulators",
+      "short_name": "Accas",
+      "description": "Faka Yonke, Shaya Zonke, Istimela",
+      "url": "/accumulators/",
+      "icons": [{ "src": "/static/icons/icon-96.png", "sizes": "96x96" }]
+    }
+  ]
+}

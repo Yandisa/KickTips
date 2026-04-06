@@ -4,106 +4,108 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-  <!-- ══════════════════════════════════════════════════════
-       PRIMARY SEO
-  ══════════════════════════════════════════════════════ -->
-  <title>{% block title %}KickTips — Free Daily Soccer Predictions{% endblock %}</title>
-  <meta name="description"        content="{% block meta_desc %}Free, automated soccer predictions across top leagues. Every tip published, every result tracked. No subscriptions, no hype.{% endblock %}">
-  <meta name="keywords"           content="{% block meta_keys %}soccer predictions, football tips, free soccer tips, accumulator tips, faka yonke, shaya zonke, istimela, south africa betting tips, kicktips{% endblock %}">
-  <meta name="robots"             content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
-  <meta name="author"             content="KickTips">
-  <link rel="canonical"           href="https://kicktips.co.za{% block canonical_path %}/{% endblock %}">
+ <!-- ══════════════════════════════════════════════════════
+     PRIMARY SEO
+══════════════════════════════════════════════════════ -->
+<title>{% block title %}KickTips — Free Daily Soccer Predictions{% endblock %}</title>
+<meta name="description" content="{% block meta_desc %}Free, automated soccer predictions across top leagues. Every tip published, every result tracked. No subscriptions, no hype.{% endblock %}">
+<meta name="keywords" content="{% block meta_keys %}soccer predictions, football tips, free soccer tips, accumulator tips, faka yonke, shaya zonke, istimela, south africa betting tips, kicktips{% endblock %}">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+<meta name="author" content="KickTips">
+<link rel="canonical" href="https://kicktips.co.za{% block canonical_path %}/{% endblock %}">
 
-  <!-- ══════════════════════════════════════════════════════
-       OPEN GRAPH (Facebook / WhatsApp)
-  ══════════════════════════════════════════════════════ -->
-  <meta property="og:type"        content="website">
-  <meta property="og:site_name"   content="KickTips">
-  <meta property="og:title"       content="{% block og_title %}KickTips — Free Daily Soccer Predictions{% endblock %}">
-  <meta property="og:description" content="{% block og_desc %}Automated, transparent soccer tips. Every prediction published. Every result tracked. Free forever.{% endblock %}">
-  <meta property="og:url"         content="https://kicktips.co.za{% block og_path %}/{% endblock %}">
-  <meta property="og:image"       content="https://kicktips.co.za/static/og-image.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height"content="630">
-  <meta property="og:locale"      content="en_ZA">
+<!-- ══════════════════════════════════════════════════════
+     OPEN GRAPH (Facebook / WhatsApp)
+══════════════════════════════════════════════════════ -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="KickTips">
+<meta property="og:title" content="{% block og_title %}KickTips — Free Daily Soccer Predictions{% endblock %}">
+<meta property="og:description" content="{% block og_desc %}Automated, transparent soccer tips. Every prediction published. Every result tracked. Free forever.{% endblock %}">
+<meta property="og:url" content="https://kicktips.co.za{% block og_path %}/{% endblock %}">
+<meta property="og:image" content="https://kicktips.co.za/static/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="en_ZA">
 
-  <!-- ══════════════════════════════════════════════════════
-       TWITTER / X CARD
-  ══════════════════════════════════════════════════════ -->
-  <meta name="twitter:card"        content="summary_large_image">
-  <meta name="twitter:title"       content="{% block tw_title %}KickTips — Free Soccer Predictions{% endblock %}">
-  <meta name="twitter:description" content="{% block tw_desc %}Free automated soccer tips. Fully transparent record. No subscriptions.{% endblock %}">
-  <meta name="twitter:image"       content="https://kicktips.co.za/static/og-image.png">
+<!-- ══════════════════════════════════════════════════════
+     TWITTER / X CARD
+══════════════════════════════════════════════════════ -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{% block tw_title %}KickTips — Free Soccer Predictions{% endblock %}">
+<meta name="twitter:description" content="{% block tw_desc %}Free automated soccer tips. Fully transparent record. No subscriptions.{% endblock %}">
+<meta name="twitter:image" content="https://kicktips.co.za/static/og-image.png">
 
-  <!-- ══════════════════════════════════════════════════════
-       GEO / REGIONAL
-  ══════════════════════════════════════════════════════ -->
-  <meta name="geo.region"          content="ZA">
-  <meta name="geo.placename"       content="South Africa">
-  <meta name="language"            content="English">
+<!-- ══════════════════════════════════════════════════════
+     GEO / REGIONAL
+══════════════════════════════════════════════════════ -->
+<meta name="geo.region" content="ZA">
+<meta name="geo.placename" content="South Africa">
+<meta name="language" content="English">
 
-  <!-- ══════════════════════════════════════════════════════
-       PWA / APP
-  ══════════════════════════════════════════════════════ -->
-  <meta name="theme-color"         content="#060608">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="KickTips">
-  <link rel="manifest"             href="/static/manifest.json">
+<!-- ══════════════════════════════════════════════════════
+     PWA / APP
+══════════════════════════════════════════════════════ -->
+<meta name="theme-color" content="#060608">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KickTips">
+<link rel="manifest" href="/static/site.webmanifest">
 
-  <!-- ══════════════════════════════════════════════════════
-       FAVICON CHAIN (all sizes)
-  ══════════════════════════════════════════════════════ -->
-  <link rel="icon"             type="image/png" sizes="32x32" href="/static/favicon-32.png">
-  <link rel="icon"             type="image/png" sizes="16x16" href="/static/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180"                href="/static/apple-touch-icon.png">
+<!-- ══════════════════════════════════════════════════════
+     FAVICONS / ICONS (MATCH ZIP EXACTLY)
+══════════════════════════════════════════════════════ -->
+<link rel="icon" href="/static/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="icon" type="image/png" sizes="96x96" href="/static/favicon-96x96.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
 
-  <!-- ══════════════════════════════════════════════════════
-       STRUCTURED DATA — Site-wide (WebSite + Organization)
-  ══════════════════════════════════════════════════════ -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "WebSite",
-        "@id": "https://kicktips.co.za/#website",
-        "url": "https://kicktips.co.za/",
-        "name": "KickTips",
-        "description": "Free automated soccer predictions. Every tip published, every result tracked.",
-        "inLanguage": "en-ZA",
-        "potentialAction": {
-          "@type": "SearchAction",
-          "target": {
-            "@type": "EntryPoint",
-            "urlTemplate": "https://kicktips.co.za/matches/?date={search_term_string}"
-          },
-          "query-input": "required name=search_term_string"
-        }
-      },
-      {
-        "@type": "Organization",
-        "@id": "https://kicktips.co.za/#organization",
-        "name": "KickTips",
-        "url": "https://kicktips.co.za/",
-        "logo": {
-          "@type": "ImageObject",
-          "url": "https://kicktips.co.za/static/logo.png",
-          "width": 400,
-          "height": 120
+<!-- ══════════════════════════════════════════════════════
+     STRUCTURED DATA — Site-wide (WebSite + Organization)
+══════════════════════════════════════════════════════ -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://kicktips.co.za/#website",
+      "url": "https://kicktips.co.za/",
+      "name": "KickTips",
+      "description": "Free automated soccer predictions. Every tip published, every result tracked.",
+      "inLanguage": "en-ZA",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://kicktips.co.za/matches/?date={search_term_string}"
         },
-        "contactPoint": {
-          "@type": "ContactPoint",
-          "email": "info@kicktips.co.za",
-          "contactType": "customer support",
-          "availableLanguage": "English"
-        },
-        "sameAs": []
+        "query-input": "required name=search_term_string"
       }
-    ]
-  }
-  </script>
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://kicktips.co.za/#organization",
+      "name": "KickTips",
+      "url": "https://kicktips.co.za/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://kicktips.co.za/static/logo.png",
+        "width": 400,
+        "height": 120
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "email": "info@kicktips.co.za",
+        "contactType": "customer support",
+        "availableLanguage": "English"
+      },
+      "sameAs": []
+    }
+  ]
+}
+</script>
+
 
   {% block extra_structured_data %}{% endblock %}
 

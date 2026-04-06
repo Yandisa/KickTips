@@ -1,0 +1,13 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+
+Contact: mailto:info@kicktips.co.za
+Expires: 2027-01-01T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://kicktips.co.za/.well-known/security.txt
+Policy: https://kicktips.co.za/.well-known/security-policy.txt
+
+# If you discover a security vulnerability in KickTips, please
+# report it responsibly to the contact above. We appreciate
+# good-faith disclosure and will respond within 5 business days.
+
+-----END PGP SIGNED MESSAGE-----

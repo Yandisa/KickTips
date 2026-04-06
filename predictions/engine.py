@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 # ── Thresholds ────────────────────────────────────────────────────────────────
 MIN_EDGE           = 0.05    # Min edge over bookmaker implied prob (raised from 0.03 — tighter quality gate)
 MIN_GAMES          = 6       # Min games for a team stat to be trusted
-MIN_BOOKIE_DECIMAL = 1.50    # Below this the bookmaker implies >67% — skip
+MIN_BOOKIE_DECIMAL = 1.25    # Below this the bookmaker implies >80% — skip (lowered from 1.50 to allow DC + Over 1.5)
 MIN_FAIR_DECIMAL   = 1.30    # Below this our model implies >77% — skip
 MIN_CONFIDENCE     = 65.0    # Never publish below this (raised from 63 — fewer but better tips)
 REQUIRE_ODDS       = True    # Never publish without real bookmaker odds — no odds = no edge
@@ -44,6 +44,8 @@ REQUIRE_ODDS       = True    # Never publish without real bookmaker odds — no 
 # Only publish corners when the bookmaker is offering real value.
 MIN_CORNER_DECIMAL   = 1.65   # Minimum decimal odds for any corners tip
 MIN_CORNER_DATA_PTS  = 5      # Minimum matches with real corner data per team
+MIN_1X2_CONFIDENCE  = 68.0    # 1X2 is weakest market — stricter floor than global 65%
+MIN_CORNER_CONFIDENCE = 68.0  # Corners market — strict floor until model is proven
 
 # No-odds fallback: publish but knock confidence
 NO_ODDS_PENALTY   = 15.0    # pp knocked off confidence when no bookmaker odds available
@@ -323,7 +325,7 @@ def predict_1x2(home, away, h2h_results, league, odds=None):
         confidence = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
         confidence = round(max(0, min(confidence, 82)), 1)
 
-        if confidence < MIN_CONFIDENCE:
+        if confidence < MIN_1X2_CONFIDENCE:
             return _skip("low_confidence")
 
         return {
@@ -502,8 +504,8 @@ def predict_double_chance(home, away, h2h_results, league, odds=None):
         odds_key = dc_odds_map.get(tip)
         bookie_dec = (odds.get("dc", {}).get(odds_key)) if (odds and odds_key) else None
 
-        # Without bookie odds we can't validate edge — require very high model confidence
-        if bookie_dec is None and model_prob < 0.76:
+        # Without bookie odds we can't validate edge — require high model confidence
+        if bookie_dec is None and model_prob < 0.72:
             return _skip("no_value")
 
         vc = _value_check(model_prob, bookie_dec)
@@ -626,7 +628,7 @@ def predict_corners(home, away, referee, h2h_results, league, odds=None):
             conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
             conf = round(max(0, min(conf, 82)), 1)
 
-            if conf < MIN_CONFIDENCE:
+            if conf < MIN_CORNER_CONFIDENCE:
                 continue
 
             candidate = {

@@ -1,538 +1,446 @@
-"""
-fetch_fixtures — Morning pipeline (v2)
-=======================================
-What's new vs v1:
-  - Fetches form, standings, O/U rates, HT/FT, lineups per fixture
-  - Fetches team results page 2 for recency weighting
-  - Stores form strings and league position on Team model
-  - Stores lineup key-player count on Team model
-  - Deduplication guard unchanged
-"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-import logging
-import random
-import time
-from datetime import date, timedelta
-from typing import Optional
+  <!-- ══════════════════════════════════════════════════════
+       PRIMARY SEO
+  ══════════════════════════════════════════════════════ -->
+  <title>{% block title %}KickTips — Free Daily Soccer Predictions{% endblock %}</title>
+  <meta name="description"        content="{% block meta_desc %}Free, automated soccer predictions across top leagues. Every tip published, every result tracked. No subscriptions, no hype.{% endblock %}">
+  <meta name="keywords"           content="{% block meta_keys %}soccer predictions, football tips, free soccer tips, accumulator tips, faka yonke, shaya zonke, istimela, south africa betting tips, kicktips{% endblock %}">
+  <meta name="robots"             content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="author"             content="KickTips">
+  <link rel="canonical"           href="https://kicktips.co.za{% block canonical_path %}/{% endblock %}">
 
-from django.core.management.base import BaseCommand
-from django.db.models import Count
-from django.utils import timezone
+  <!-- ══════════════════════════════════════════════════════
+       OPEN GRAPH (Facebook / WhatsApp)
+  ══════════════════════════════════════════════════════ -->
+  <meta property="og:type"        content="website">
+  <meta property="og:site_name"   content="KickTips">
+  <meta property="og:title"       content="{% block og_title %}KickTips — Free Daily Soccer Predictions{% endblock %}">
+  <meta property="og:description" content="{% block og_desc %}Automated, transparent soccer tips. Every prediction published. Every result tracked. Free forever.{% endblock %}">
+  <meta property="og:url"         content="https://kicktips.co.za{% block og_path %}/{% endblock %}">
+  <meta property="og:image"       content="https://kicktips.co.za/static/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height"content="630">
+  <meta property="og:locale"      content="en_ZA">
 
-from fixtures.models import Fixture, League, Referee, Team
-from fixtures import api_client
+  <!-- ══════════════════════════════════════════════════════
+       TWITTER / X CARD
+  ══════════════════════════════════════════════════════ -->
+  <meta name="twitter:card"        content="summary_large_image">
+  <meta name="twitter:title"       content="{% block tw_title %}KickTips — Free Soccer Predictions{% endblock %}">
+  <meta name="twitter:description" content="{% block tw_desc %}Free automated soccer tips. Fully transparent record. No subscriptions.{% endblock %}">
+  <meta name="twitter:image"       content="https://kicktips.co.za/static/og-image.png">
 
-logger = logging.getLogger(__name__)
+  <!-- ══════════════════════════════════════════════════════
+       GEO / REGIONAL
+  ══════════════════════════════════════════════════════ -->
+  <meta name="geo.region"          content="ZA">
+  <meta name="geo.placename"       content="South Africa">
+  <meta name="language"            content="English">
 
-MAX_TEAM_STAT_UPDATES = 20
-MAX_ENRICHMENT_PER_RUN = 10
-ENRICHMENT_DELAY = 1.5
-TEAM_RESULTS_DELAY = 1.0
-MATCH_STATS_DELAY = 1.0
+  <!-- ══════════════════════════════════════════════════════
+       PWA / APP
+  ══════════════════════════════════════════════════════ -->
+  <meta name="theme-color"         content="#060608">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="KickTips">
+  <link rel="manifest"             href="/static/manifest.json">
 
+  <!-- ══════════════════════════════════════════════════════
+       FAVICON CHAIN (all sizes)
+  ══════════════════════════════════════════════════════ -->
+  <link rel="icon"             type="image/png" sizes="32x32" href="/static/favicon-32.png">
+  <link rel="icon"             type="image/png" sizes="16x16" href="/static/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180"                href="/static/apple-touch-icon.png">
 
-class Command(BaseCommand):
-    help = "Fetch fixtures (today or tomorrow), enrich team stats, fetch odds/form/lineups"
-
-    def add_arguments(self, parser):
-        parser.add_argument(
-            "--tomorrow",
-            action="store_true",
-            default=False,
-            help="Fetch tomorrow's fixtures instead of today's (use for the 20:00 evening pipeline)",
-        )
-
-    def handle(self, *args, **kwargs):
-        fetch_tomorrow = kwargs.get("tomorrow", False)
-        target_date = date.today() + timedelta(days=1) if fetch_tomorrow else date.today()
-        target_str = target_date.strftime("%Y-%m-%d")
-        api_day = 1 if fetch_tomorrow else 0
-
-        label = "Evening Pipeline v2 (tomorrow)" if fetch_tomorrow else "Morning Pipeline v2"
-        self.stdout.write(f"=== {label}: {target_str} ===")
-
-        removed = self._cleanup_duplicate_fixtures(target_str)
-        if removed:
-            self.stdout.write(f"Removed {removed} duplicate fixture rows")
-
-        fixtures_data = api_client.fetch_fixtures_by_date(target_str, day=api_day)
-        if not fixtures_data:
-            self.stdout.write(f"No fixtures found for {target_str}.")
-            return
-
-        self.stdout.write(f"Found {len(fixtures_data)} fixtures")
-
-        saved = skipped = dupe_skips = 0
-        teams_to_update = []
-        fixtures_to_enrich = []
-        seen_ids = set()
-
-        for item in fixtures_data:
-            match_id = (item.get("match_id") or "").strip()
-            if not match_id or match_id in seen_ids:
-                dupe_skips += 1 if match_id in seen_ids else 0
-                skipped += 1
-                continue
-            seen_ids.add(match_id)
-
-            try:
-                league = self._get_or_create_league(item)
-                fixture = self._save_fixture(item, league)
-                if fixture:
-                    saved += 1
-                    if league.active:
-                        teams_to_update.append((item["home_team_id"], item["home_team_name"], league))
-                        teams_to_update.append((item["away_team_id"], item["away_team_name"], league))
-                        fixtures_to_enrich.append((fixture, item))
-                else:
-                    skipped += 1
-            except Exception as exc:
-                skipped += 1
-                logger.error("Error processing fixture %s: %s", match_id, exc)
-
-        self.stdout.write(f"Saved {saved}, skipped {skipped}, payload dupes {dupe_skips}")
-
-        unique_teams = self._deduplicate_teams(teams_to_update)
-
-        qualified_teams = [
-            (tid, tname, lg)
-            for tid, tname, lg in unique_teams
-            if self._league_has_data(lg)
-        ]
-        random.shuffle(qualified_teams)
-        limited_teams = qualified_teams[:MAX_TEAM_STAT_UPDATES]
-        skipped_teams = len(unique_teams) - len(qualified_teams)
-        deferred_teams = max(0, len(qualified_teams) - len(limited_teams))
-
-        self.stdout.write(
-            f"Updating stats for {len(limited_teams)} teams "
-            f"({skipped_teams} skipped — leagues lack finished history, "
-            f"{deferred_teams} deferred by rate limit guard)"
-        )
-
-        ok = fail = 0
-        for team_id, team_name, league in limited_teams:
-            if self._update_team_stats(team_id, team_name, league):
-                ok += 1
-            else:
-                fail += 1
-        self.stdout.write(f"Stats: {ok} OK, {fail} failed")
-
-        qualified_enrichments = [
-            (fixture, item)
-            for fixture, item in fixtures_to_enrich
-            if (fixture.venue or "").startswith("fs:")
-            and self._league_has_data(fixture.league)
-        ]
-        random.shuffle(qualified_enrichments)
-        limited_enrichments = qualified_enrichments[:MAX_ENRICHMENT_PER_RUN]
-
-        self.stdout.write(
-            f"Enriching {len(limited_enrichments)} fixtures "
-            f"(of {len(fixtures_to_enrich)} total, {len(qualified_enrichments)} qualified)..."
-        )
-
-        ef_ok = ef_fail = 0
-        for fixture, item in limited_enrichments:
-            try:
-                self._enrich_fixture(fixture, item)
-                ef_ok += 1
-            except Exception as exc:
-                ef_fail += 1
-                logger.error("Enrichment failed for %s: %s", fixture, exc)
-        self.stdout.write(f"Enrichment: {ef_ok} OK, {ef_fail} failed")
-
-        self.stdout.write(self.style.SUCCESS("Morning pipeline v2 complete ✅"))
-
-    def _enrich_fixture(self, fixture: "Fixture", item: dict):
-        venue = fixture.venue or ""
-        if not venue.startswith("fs:"):
-            return
-        match_id = venue[3:]
-
-        home_team_id = item.get("home_team_id", "")
-        away_team_id = item.get("away_team_id", "")
-
-        try:
-            form_data = api_client.fetch_match_standings_form(match_id)
-            if form_data:
-                self._apply_form(fixture.home_team, home_team_id, form_data)
-                self._apply_form(fixture.away_team, away_team_id, form_data)
-        except Exception as exc:
-            logger.debug("Form fetch failed for %s: %s", match_id, exc)
-        time.sleep(ENRICHMENT_DELAY)
-
-        try:
-            standings = api_client.fetch_match_standings(match_id)
-            if standings:
-                self._apply_standings(fixture.home_team, home_team_id, standings)
-                self._apply_standings(fixture.away_team, away_team_id, standings)
-        except Exception as exc:
-            logger.debug("Standings fetch failed for %s: %s", match_id, exc)
-        time.sleep(ENRICHMENT_DELAY)
-
-        for sub_type in ("2.5",):
-            try:
-                ou_data = api_client.fetch_match_over_under(match_id, sub_type=sub_type)
-                if ou_data:
-                    self._apply_ou_rates(fixture.home_team, home_team_id, ou_data, sub_type)
-                    self._apply_ou_rates(fixture.away_team, away_team_id, ou_data, sub_type)
-            except Exception as exc:
-                logger.debug("O/U %s fetch failed for %s: %s", sub_type, match_id, exc)
-            time.sleep(ENRICHMENT_DELAY)
-
-        try:
-            htft_data = api_client.fetch_match_ht_ft(match_id)
-            if htft_data:
-                self._apply_htft(fixture.home_team, home_team_id, htft_data)
-                self._apply_htft(fixture.away_team, away_team_id, htft_data)
-        except Exception as exc:
-            logger.debug("HT/FT fetch failed for %s: %s", match_id, exc)
-        time.sleep(ENRICHMENT_DELAY)
-
-        try:
-            lineups = api_client.fetch_match_lineups(match_id)
-            if lineups.get("available"):
-                self._apply_lineups(fixture.home_team, lineups.get("home", {}))
-                self._apply_lineups(fixture.away_team, lineups.get("away", {}))
-                logger.info("Lineups confirmed for %s", fixture)
-            else:
-                logger.debug("Lineups not yet available for %s", fixture)
-        except Exception as exc:
-            logger.debug("Lineups fetch failed for %s: %s", match_id, exc)
-
-        now = timezone.now()
-        for team in (fixture.home_team, fixture.away_team):
-            team.enriched_at = now
-            team.save(update_fields=["enriched_at"])
-
-    def _apply_form(self, team: "Team", fs_team_id: str, form_data: dict):
-        row = form_data.get(str(fs_team_id))
-        if not row:
-            return
-        form_str = row.get("form", "")
-        if not form_str:
-            return
-        team.form_overall = form_str[:10]
-        team.form_home = form_str[:6]
-        team.form_away = form_str[:6]
-        team.save(update_fields=["form_overall", "form_home", "form_away"])
-
-    def _apply_standings(self, team: "Team", fs_team_id: str, standings: list):
-        for row in standings:
-            tid = str(row.get("team_id") or row.get("id") or "")
-            if tid != str(fs_team_id):
-                continue
-            team.league_position = int(row.get("position") or row.get("rank") or 0) or None
-            team.league_points = int(row.get("points") or 0) or None
-            team.league_gf = int(row.get("goals_for") or row.get("scored") or 0) or None
-            team.league_ga = int(row.get("goals_against") or row.get("conceded") or 0) or None
-            team.save(update_fields=["league_position", "league_points", "league_gf", "league_ga"])
-            break
-
-    def _apply_ou_rates(self, team: "Team", fs_team_id: str, ou_data: list, sub_type: str):
-        field_map = {
-            "1.5": ("home_ou15_over_rate", "away_ou15_over_rate"),
-            "2.5": ("home_ou25_over_rate", "away_ou25_over_rate"),
-            "3.5": ("home_ou35_over_rate", "away_ou35_over_rate"),
+  <!-- ══════════════════════════════════════════════════════
+       STRUCTURED DATA — Site-wide (WebSite + Organization)
+  ══════════════════════════════════════════════════════ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://kicktips.co.za/#website",
+        "url": "https://kicktips.co.za/",
+        "name": "KickTips",
+        "description": "Free automated soccer predictions. Every tip published, every result tracked.",
+        "inLanguage": "en-ZA",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://kicktips.co.za/matches/?date={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
         }
-        if sub_type not in field_map:
-            return
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://kicktips.co.za/#organization",
+        "name": "KickTips",
+        "url": "https://kicktips.co.za/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://kicktips.co.za/static/logo.png",
+          "width": 400,
+          "height": 120
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "email": "info@kicktips.co.za",
+          "contactType": "customer support",
+          "availableLanguage": "English"
+        },
+        "sameAs": []
+      }
+    ]
+  }
+  </script>
 
-        home_field, away_field = field_map[sub_type]
+  {% block extra_structured_data %}{% endblock %}
 
-        for row in ou_data:
-            tid = str(row.get("team_id") or row.get("id") or "")
-            if tid != str(fs_team_id):
-                continue
-            played = int(row.get("matches_played") or row.get("played") or 0)
-            over = int(row.get("over") or 0)
-            if played > 0:
-                rate = round(over / played, 3)
-                setattr(team, home_field, rate)
-                setattr(team, away_field, rate)
-                team.save(update_fields=[home_field, away_field])
-            break
+  <!-- ══════════════════════════════════════════════════════
+       FONTS
+  ══════════════════════════════════════════════════════ -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Barlow+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    def _apply_htft(self, team: "Team", fs_team_id: str, htft_data: list):
-        for row in htft_data:
-            tid = str(row.get("team_id") or row.get("id") or "")
-            if tid != str(fs_team_id):
-                continue
-            played = int(row.get("matches_played") or row.get("played") or 1) or 1
+  <style>
+    :root {
+      --bg:         #060608;
+      --surface:    #0e0f14;
+      --surface-hi: #161820;
+      --border:     rgba(255,255,255,0.07);
+      --border-hi:  rgba(255,255,255,0.16);
+      --text:       #f0f2f7;
+      --muted:      #5a6275;
+      --dim:        #2e3340;
+      --accent:     #e8ff47;
+      --accent-dark:#c8df20;
+      --accent-dim: rgba(232,255,71,0.08);
+      --accent2:    #4af0c0;
+      --win:        #4af0a0;
+      --loss:       #ff5566;
+      --warn:       #ffb340;
+      --mono:       'Barlow Condensed', monospace;
+      --display:    'Bebas Neue', sans-serif;
+      --sans:       'Barlow', system-ui, sans-serif;
+      --radius:     4px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); font-size: 15px; font-weight: 400;
+      line-height: 1.6; min-height: 100vh;
+    }
+    a { color: inherit; text-decoration: none; }
 
-            def rate(key):
-                return round(int(row.get(key) or 0) / played, 3)
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.012) 59px, rgba(255,255,255,0.012) 60px),
+        repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.008) 59px, rgba(255,255,255,0.008) 60px);
+      pointer-events: none; z-index: 0;
+    }
+    body > * { position: relative; z-index: 1; }
 
-            team.htft_ww_rate = rate("win_win")
-            team.htft_wd_rate = rate("win_draw")
-            team.htft_wl_rate = rate("win_lose")
-            team.htft_dw_rate = rate("draw_win")
-            team.htft_ll_rate = rate("lose_lose")
-            team.save(
-                update_fields=[
-                    "htft_ww_rate",
-                    "htft_wd_rate",
-                    "htft_wl_rate",
-                    "htft_dw_rate",
-                    "htft_ll_rate",
-                ]
-            )
-            break
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 200;
+      background: rgba(6,6,8,0.97);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      height: 58px; display: flex; align-items: center; padding: 0 20px;
+    }
+    .nav-brand { font-family: var(--display); font-size: 1.6rem; letter-spacing: 0.04em; color: var(--text); flex-shrink: 0; margin-right: auto; line-height: 1; }
+    .nav-brand em { font-style: normal; color: var(--accent); }
+    .nav-links { display: flex; gap: 0; align-items: center; }
+    .nav-links a {
+      font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); padding: 8px 12px;
+      transition: color 0.15s; white-space: nowrap; position: relative;
+    }
+    .nav-links a::after {
+      content: ''; position: absolute; bottom: -1px; left: 12px; right: 12px;
+      height: 2px; background: var(--accent); transform: scaleX(0); transition: transform 0.15s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a:hover::after { transform: scaleX(1); }
+    .nav-links a.active { color: var(--accent); }
+    .nav-links a.active::after { transform: scaleX(1); }
+    .nav-donate {
+      margin-left: 8px; background: var(--accent) !important; color: #060608 !important;
+      padding: 7px 14px !important; border-radius: var(--radius);
+      font-family: var(--mono) !important; font-size: 11px !important;
+      font-weight: 700 !important; letter-spacing: 0.1em !important;
+      transition: background 0.15s, transform 0.15s !important;
+    }
+    .nav-donate::after { display: none !important; }
+    .nav-donate:hover  { background: var(--accent-dark) !important; transform: translateY(-1px); color: #060608 !important; }
 
-    def _apply_lineups(self, team: "Team", side_data: dict):
-        starters = side_data.get("starters", [])
-        if not starters:
-            return
+    /* ── WINNERS TICKER ── */
+    .winners-ticker {
+      width: 100%; background: rgba(74,240,160,0.05);
+      border-bottom: 1px solid rgba(74,240,160,0.14);
+      overflow: hidden; height: 34px; display: flex; align-items: center;
+      position: relative; z-index: 190;
+    }
+    .ticker-label {
+      flex-shrink: 0; padding: 0 14px; height: 100%;
+      display: flex; align-items: center;
+      border-right: 1px solid rgba(74,240,160,0.18);
+      background: rgba(74,240,160,0.07);
+      font-family: var(--mono); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; color: var(--win); white-space: nowrap;
+    }
+    .ticker-track { flex: 1; overflow: hidden; position: relative; height: 100%; }
+    .ticker-inner {
+      display: inline-flex; align-items: center; height: 100%; white-space: nowrap;
+      animation: tickerScroll 32s linear infinite;
+    }
+    .ticker-inner:hover { animation-play-state: paused; cursor: default; }
+    @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+    .ticker-item { display: inline-flex; align-items: center; gap: 6px; padding-right: 32px; font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: 0.02em; }
+    .ticker-bullet { width: 5px; height: 5px; border-radius: 50%; background: var(--win); flex-shrink: 0; }
+    .ticker-amount { color: var(--win); font-weight: 700; }
+    .ticker-acca   { color: var(--accent); }
+    .ticker-msg    { color: var(--muted); font-style: italic; font-weight: 400; }
+    .ticker-sep    { display: inline-block; width: 1px; height: 12px; background: rgba(255,255,255,0.1); margin-right: 24px; vertical-align: middle; }
+    .ticker-share  { flex-shrink: 0; padding: 0 12px; height: 100%; display: flex; align-items: center; border-left: 1px solid rgba(74,240,160,0.18); }
+    .ticker-share a { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--win); opacity: 0.65; transition: opacity 0.15s; }
+    .ticker-share a:hover { opacity: 1; }
 
-        has_gk = any(("goalkeeper" in (p.get("position") or "").lower()) for p in starters)
-        striker_cnt = sum(
-            1
-            for p in starters
-            if any(
-                x in (p.get("position") or "").lower()
-                for x in ("forward", "striker", "attacker", "centre-forward")
-            )
-        )
+    /* ── CONTAINER ── */
+    .container { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; animation: fadein 0.3s ease; }
 
-        missing = 0
-        if not has_gk:
-            missing += 2
-        if striker_cnt == 0:
-            missing += 1
+    .page-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; font-weight: 600; }
+    .page-title { font-family: var(--display); font-size: clamp(2.8rem, 7vw, 5rem); line-height: 0.95; letter-spacing: 0.02em; color: var(--text); margin-bottom: 16px; text-transform: uppercase; }
+    .page-sub { font-size: 15px; font-weight: 300; color: var(--muted); line-height: 1.7; max-width: 500px; }
+    .section-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+    .rule { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
 
-        team.key_players_missing = missing
-        team.lineup_checked_at = timezone.now()
-        team.save(update_fields=["key_players_missing", "lineup_checked_at"])
+    .stat-row { display: grid; grid-template-columns: repeat(2, 1fr); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+    .stat-cell { padding: 20px 18px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .stat-cell:nth-child(2n) { border-right: none; }
+    .stat-cell:nth-last-child(-n+2) { border-bottom: none; }
+    .stat-cell .val { font-family: var(--display); font-size: 2.6rem; line-height: 1; letter-spacing: 0.02em; color: var(--text); margin-bottom: 4px; }
+    .stat-cell .val.accent { color: var(--accent); }
+    .stat-cell .val.win    { color: var(--win); }
+    .stat-cell .val.loss   { color: var(--loss); }
+    .stat-cell .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 
-    def _update_team_stats(self, team_id: str, team_name: str, league: "League") -> bool:
-        fake_int_id = api_client._stable_id(team_id)
-        team = Team.objects.filter(api_id=fake_int_id).first()
-        if not team:
-            return False
+    .tip-chip { display: inline-block; font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 4px 10px; background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(232,255,71,0.25); border-radius: 2px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+    .tip-chip.muted { background: transparent; color: var(--dim); border-color: var(--border); }
 
-        try:
-            p1 = api_client.fetch_team_results(team_id, page=1)
-            time.sleep(TEAM_RESULTS_DELAY)
-            p2 = api_client.fetch_team_results(team_id, page=2)
-            time.sleep(TEAM_RESULTS_DELAY)
-            results = p1 + p2
+    .conf-track { height: 2px; background: var(--dim); border-radius: 1px; overflow: hidden; }
+    .conf-fill  { height: 100%; background: var(--accent); border-radius: 1px; }
 
-            if results and len(results) >= 5:
-                corner_stat_matches = 3
-                enriched = 0
-                for r in results[:corner_stat_matches]:
-                    mid = r.get("match_id")
-                    if not mid:
-                        continue
-                    try:
-                        mstats = api_client.fetch_fixture_stats(mid)
-                        if mstats.get("home_corners") is not None:
-                            r["home_corners"] = mstats["home_corners"]
-                            r["away_corners"] = mstats["away_corners"]
-                            enriched += 1
-                    except Exception:
-                        pass
-                    time.sleep(MATCH_STATS_DELAY)
+    .pred-block { padding: 20px 18px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; background: var(--surface); transition: border-color 0.15s; }
+    .pred-block:hover { border-color: var(--border-hi); }
+    .pred-market { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+    .pred-tip { font-family: var(--display); font-size: 1.8rem; line-height: 1; letter-spacing: 0.04em; color: var(--text); margin-bottom: 10px; text-transform: uppercase; }
+    .pred-reasoning { font-size: 13px; color: var(--muted); line-height: 1.7; font-weight: 300; }
 
-                if enriched:
-                    logger.info(
-                        "[CORNERS] %s — %d/%d matches enriched with corner data",
-                        team_name,
-                        enriched,
-                        corner_stat_matches,
-                    )
+    .result-pill { display: inline-block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; padding: 3px 8px; border: 1px solid currentColor; border-radius: 2px; }
+    .result-pill.won     { color: var(--win); }
+    .result-pill.lost    { color: var(--loss); }
+    .result-pill.pending { color: var(--warn); }
+    .result-pill.void    { color: var(--muted); }
 
-                stats = api_client.compute_team_stats_from_results(team_id, results)
-                if stats.get("games_played", 0) >= 5:
-                    self._apply_stats(team, stats)
-                    logger.info("[OK] %s — %d games", team_name, stats["games_played"])
-                    return True
-        except Exception as exc:
-            logger.debug("Results failed for %s: %s", team_name, exc)
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 600; text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(232,255,71,0.025); }
+    .data-table .mono { font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; }
+    .data-table .win  { color: var(--win); }
+    .data-table .loss { color: var(--loss); }
 
-        logger.warning("[NO DATA] %s", team_name)
-        return False
+    .filter-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 24px; }
+    select, input[type="date"] {
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+      padding: 8px 12px; border-radius: var(--radius); outline: none; -webkit-appearance: none;
+      cursor: pointer; transition: border-color 0.15s; min-height: 38px;
+    }
+    select:hover, input[type="date"]:hover { border-color: var(--border-hi); }
+    select:focus, input[type="date"]:focus { border-color: var(--accent); }
 
-    def _apply_stats(self, team: "Team", stats: dict):
-        for field, value in stats.items():
-            if hasattr(team, field):
-                setattr(team, field, value)
-        team.save()
+    .btn { display: inline-block; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 10px 22px; cursor: pointer; transition: all 0.15s; border: none; border-radius: var(--radius); min-height: 38px; }
+    .btn-accent { background: var(--accent); color: #060608; }
+    .btn-accent:hover { background: var(--accent-dark); transform: translateY(-1px); }
+    .btn-ghost  { background: transparent; border: 1px solid var(--border-hi); color: var(--text); }
+    .btn-ghost:hover  { border-color: var(--accent); color: var(--accent); }
+    .btn-win    { background: var(--win); color: #060608; }
+    .btn-win:hover    { opacity: 0.88; transform: translateY(-1px); }
 
-    def _cleanup_duplicate_fixtures(self, today_str: str) -> int:
-        groups = (
-            Fixture.objects.filter(kickoff__date=today_str)
-            .values("api_id")
-            .annotate(c=Count("id"))
-            .filter(c__gt=1)
-        )
-        removed = 0
-        for group in groups:
-            rows = Fixture.objects.filter(
-                kickoff__date=today_str,
-                api_id=group["api_id"],
-            ).order_by("id")
-            keep = rows.first()
-            extras = rows.exclude(id=keep.id)
-            n = extras.count()
-            if n:
-                extras.delete()
-                removed += n
-        return removed
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display: none; }
+    .accordion { border-bottom: 1px solid var(--border); }
+    .accordion summary { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; font-size: 14px; font-weight: 500; user-select: none; gap: 12px; transition: color 0.15s; }
+    .accordion summary .caret { font-family: var(--mono); font-size: 10px; color: var(--muted); transition: transform 0.2s; flex-shrink: 0; }
+    .accordion[open] summary .caret { transform: rotate(90deg); }
+    .accordion[open] summary { color: var(--accent); }
+    .accordion-body { padding: 4px 0 20px; }
 
-    def _get_or_create_league(self, item: dict) -> "League":
-        name = item["league_name"].split(" - Round")[0].split(" - Matchday")[0].strip()
-        league, _ = League.objects.update_or_create(
-            api_id=item["league_api_id"],
-            defaults={
-                "name": name,
-                "country": item["country_name"],
-                "tier": item["league_tier"],
-                "active": True,
-                "season": self._current_season(),
-            },
-        )
-        return league
+    .form-badge { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 2px; font-family: var(--mono); font-size: 11px; font-weight: 700; }
+    .form-badge.W { background: rgba(74,240,160,0.15); color: var(--win); }
+    .form-badge.D { background: rgba(255,179,64,0.12);  color: var(--warn); }
+    .form-badge.L { background: rgba(255,85,102,0.12);  color: var(--loss); }
 
-    def _current_season(self) -> int:
-        today = date.today()
-        return today.year if today.month >= 7 else today.year - 1
+    .history-score { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; flex-shrink: 0; }
+    .history-score.win  { color: var(--win); }
+    .history-score.draw { color: var(--warn); }
+    .history-score.loss { color: var(--loss); }
 
-    def _save_fixture(self, item: dict, league: "League") -> Optional["Fixture"]:
-        try:
-            match_id = item["match_id"]
-            stable_api_id = api_client._stable_id(match_id)
-            venue_str = f"fs:{match_id}"
+    /* ── FOOTER ── */
+    footer { border-top: 1px solid var(--border); padding: 24px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: var(--surface); }
+    footer .brand { font-family: var(--display); font-size: 1.4rem; letter-spacing: 0.04em; color: var(--text); line-height: 1; }
+    footer .brand em { font-style: normal; color: var(--accent); }
+    footer .legal { font-size: 11px; color: var(--muted); max-width: 420px; line-height: 1.5; text-align: right; }
+    .footer-builder { font-size: 10px; color: var(--dim); margin-top: 6px; text-align: right; }
+    .footer-builder a { color: var(--dim); transition: color 0.15s; }
+    .footer-builder a:hover { color: var(--muted); }
 
-            home_team = self._get_or_create_team(item["home_team_id"], item["home_team_name"], league)
-            away_team = self._get_or_create_team(item["away_team_id"], item["away_team_name"], league)
+    @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-            referee = None
-            ref_name = (item.get("referee") or "").strip()
-            if ref_name:
-                ref_name = ref_name.split(",")[0].strip()
-                if ref_name:
-                    referee, _ = Referee.objects.get_or_create(name=ref_name)
+    @media (min-width: 640px) {
+      nav { padding: 0 32px; }
+      .container { padding: 40px 32px 88px; }
+      .stat-row { grid-template-columns: repeat(4, 1fr); }
+      .stat-cell { border-bottom: none; }
+      .stat-cell:nth-child(2n) { border-right: 1px solid var(--border); }
+      .stat-cell:last-child { border-right: none; }
+      footer { padding: 28px 32px; }
+    }
+    @media (min-width: 960px) {
+      nav { padding: 0 48px; }
+      .container { padding: 48px 48px 96px; max-width: 900px; }
+      footer { padding: 28px 48px; }
+    }
+    @media (max-width: 639px) {
+      .nav-links a { padding: 6px 8px; font-size: 12px; }
+      .nav-donate { display: none; }
+      footer { flex-direction: column; text-align: center; }
+      footer .legal { text-align: center; max-width: 100%; }
+      .footer-builder { text-align: center; }
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
 
-            kickoff = item["kickoff"] or timezone.now()
-            existing_by_teams = Fixture.objects.filter(
-                home_team=home_team,
-                away_team=away_team,
-                kickoff__date=kickoff.date() if hasattr(kickoff, "date") else kickoff,
-            ).order_by("id")
+<nav>
+  <a href="{% url 'home' %}" class="nav-brand" aria-label="KickTips home">KICK<em>TIPS</em></a>
+  <nav class="nav-links" aria-label="Main navigation">
+    <a href="{% url 'home' %}"         {% if request.resolver_match.url_name == 'home'         %}class="active" aria-current="page"{% endif %}>Home</a>
+    <a href="{% url 'matches' %}"      {% if request.resolver_match.url_name == 'matches'      %}class="active" aria-current="page"{% endif %}>Matches</a>
+    <a href="{% url 'record' %}"       {% if request.resolver_match.url_name == 'record'       %}class="active" aria-current="page"{% endif %}>Record</a>
+    <a href="{% url 'accumulators' %}" {% if request.resolver_match.url_name == 'accumulators' %}class="active" aria-current="page"{% endif %}>Accas</a>
+    <a href="{% url 'winners' %}"      {% if request.resolver_match.url_name == 'winners'      %}class="active" aria-current="page"{% endif %}>Winners</a>
+    <a href="{% url 'donate' %}" class="nav-donate">Donate</a>
+  </nav>
+</nav>
 
-            if existing_by_teams.exists():
-                keep = existing_by_teams.first()
-                existing_by_teams.exclude(id=keep.id).delete()
-                status_rank = {
-                    "finished": 4,
-                    "live": 3,
-                    "scheduled": 2,
-                    "postponed": 1,
-                    "cancelled": 0,
-                }
-                new_status = item["status"]
-                if status_rank.get(new_status, 0) >= status_rank.get(keep.status, 0):
-                    keep.status = new_status
-                    keep.home_score = (
-                        int(item["home_score"]) if item.get("home_score") is not None else keep.home_score
-                    )
-                    keep.away_score = (
-                        int(item["away_score"]) if item.get("away_score") is not None else keep.away_score
-                    )
-                    keep.venue = venue_str
-                    keep.api_id = stable_api_id
-                    keep.save()
-                return keep
+<!-- WINNERS TICKER -->
+<div class="winners-ticker" role="marquee" aria-label="Recent winners">
+  <div class="ticker-label">Winners</div>
+  <div class="ticker-track">
+    <div class="ticker-inner" id="tickerInner" aria-hidden="true"><!-- JS --></div>
+  </div>
+  <div class="ticker-share">
+    <a href="{% url 'winners' %}">Share your win</a>
+  </div>
+</div>
 
-            fixture, _ = Fixture.objects.update_or_create(
-                api_id=stable_api_id,
-                defaults={
-                    "league": league,
-                    "home_team": home_team,
-                    "away_team": away_team,
-                    "kickoff": kickoff,
-                    "referee": referee,
-                    "venue": venue_str,
-                    "status": item["status"],
-                    "home_score": int(item["home_score"]) if item.get("home_score") is not None else None,
-                    "away_score": int(item["away_score"]) if item.get("away_score") is not None else None,
-                },
-            )
-            return fixture
-        except Exception as exc:
-            logger.error("Error saving fixture: %s", exc)
-            return None
+<main class="container" id="main-content">
+  {% block content %}{% endblock %}
+</main>
 
-    def _get_or_create_team(self, team_id: str, team_name: str, league: "League") -> "Team":
-        fake_int_id = api_client._stable_id(team_id)
+<footer role="contentinfo">
+  <div>
+    <div class="brand">KICK<em>TIPS</em></div>
+    <div style="margin-top:8px; font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:0.06em;">
+      <a href="mailto:info@kicktips.co.za" style="transition:color 0.15s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">info@kicktips.co.za</a>
+    </div>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <a href="{% url 'winners' %}" class="btn btn-win"    style="font-size:11px; padding:8px 18px;">Share a Win</a>
+    <a href="{% url 'review' %}"  class="btn btn-ghost"  style="font-size:11px; padding:8px 18px;">Leave a Review</a>
+    <a href="{% url 'donate' %}"  class="btn btn-accent" style="font-size:11px; padding:8px 18px;">Donate</a>
+  </div>
+  <div>
+    <div class="legal">
+      18+ only. Predictions are automated data-driven estimates, not guarantees.
+      Every tip published. Every result recorded publicly. Bet responsibly.
+    </div>
+    <div class="footer-builder">
+      Built with care by <a href="https://www.ygengineering.co.za" target="_blank" rel="noopener">YG Engineering</a>
+    </div>
+  </div>
+</footer>
 
-        team = Team.objects.filter(api_id=fake_int_id).first()
-        if team:
-            # Fix blank or Unknown_ names if we now have a real name
-            if team_name and (not team.name or team.name.startswith("Unknown_")):
-                team.name = team_name
-                team.save(update_fields=["name"])
-                logger.info("Fixed team name: %s → %s", team.api_id, team_name)
-            return team
+<script>
+// ── XSS-safe helper ───────────────────────────────────────────
+function esc(s) {
+  const d = document.createElement('span');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
 
-        team = Team.objects.filter(name=team_name, league=league).first()
-        if team:
-            team.api_id = fake_int_id
-            team.save(update_fields=["api_id"])
-            return team
+// ── Winners Ticker ────────────────────────────────────────────
+const SEED_WINNERS = [
+  { name:"Themba",  amount:"R850",   acca:"Faka Yonke",  msg:"" },
+  { name:"Lerato",  amount:"R2 400", acca:"Shaya Zonke", msg:"" },
+  { name:"Sipho",   amount:"R1 100", acca:"Faka Yonke",  msg:"First time — won first try!" },
+  { name:"Nandi",   amount:"R3 200", acca:"Istimela",    msg:"" },
+  { name:"Kagiso",  amount:"R600",   acca:"Faka Yonke",  msg:"Easy money" },
+  { name:"Ayanda",  amount:"R5 000", acca:"Istimela",    msg:"Istimela never misses" },
+  { name:"Bongani", amount:"R750",   acca:"Shaya Zonke", msg:"" },
+  { name:"Zanele",  amount:"R1 800", acca:"Shaya Zonke", msg:"Couldn't believe it" },
+];
 
-        team, created = Team.objects.get_or_create(
-            api_id=fake_int_id,
-            defaults={
-                "name": team_name,
-                "league": league,
-                "form_home": "",
-                "form_away": "",
-                "form_overall": "",
-                "key_players_missing": 0,
-                "rw_home_goals_for": 0.0,
-                "rw_home_goals_against": 0.0,
-                "rw_away_goals_for": 0.0,
-                "rw_away_goals_against": 0.0,
-                "home_ou15_over_rate": 0.0,
-                "home_ou25_over_rate": 0.0,
-                "home_ou35_over_rate": 0.0,
-                "away_ou15_over_rate": 0.0,
-                "away_ou25_over_rate": 0.0,
-                "away_ou35_over_rate": 0.0,
-                "htft_ww_rate": 0.0,
-                "htft_wd_rate": 0.0,
-                "htft_wl_rate": 0.0,
-                "htft_dw_rate": 0.0,
-                "htft_ll_rate": 0.0,
-            },
-        )
-        if not created:
-            changed = False
-            if team.name != team_name:
-                team.name = team_name
-                changed = True
-            if not team.league:
-                team.league = league
-                changed = True
-            if changed:
-                team.save()
-        return team
+function getWinners() {
+  try {
+    const raw = localStorage.getItem('kt_winners');
+    // Validate: must be an array, cap at 200 items to prevent DoS
+    const user = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(user)) return SEED_WINNERS;
+    return [...user.slice(0, 200), ...SEED_WINNERS];
+  } catch(e) { return SEED_WINNERS; }
+}
 
-    def _league_has_data(self, league: "League") -> bool:
-        from fixtures.models import Fixture as Fix
+function renderTicker() {
+  const el = document.getElementById('tickerInner');
+  if (!el) return;
+  const wins = getWinners();
+  if (!wins.length) return;
+  let html = '';
+  [0,1].forEach(() => {
+    wins.forEach(w => {
+      const msgPart = w.msg ? `<span class="ticker-msg">&nbsp;"${esc(w.msg)}"</span>` : '';
+      html += `<span class="ticker-item"><span class="ticker-bullet"></span><strong>${esc(w.name)}</strong>&nbsp;won&nbsp;<span class="ticker-amount">${esc(w.amount)}</span>&nbsp;with&nbsp;<span class="ticker-acca">${esc(w.acca)}</span>${msgPart}</span><span class="ticker-sep"></span>`;
+    });
+  });
+  el.innerHTML = html;
+  const totalWidth = el.scrollWidth / 2;
+  const dur = Math.max(18, Math.round(totalWidth / 80));
+  el.style.animationDuration = dur + 's';
+}
 
-        return Fix.objects.filter(
-            league=league,
-            status="finished",
-        ).count() >= 1
+document.addEventListener('DOMContentLoaded', renderTicker);
+window.addEventListener('storage', e => { if (e.key === 'kt_winners') renderTicker(); });
+</script>
 
-    def _deduplicate_teams(self, team_list):
-        seen, unique = set(), []
-        for team_id, name, league in team_list:
-            if team_id and team_id not in seen:
-                seen.add(team_id)
-                unique.append((team_id, name, league))
-        return unique
+</body>
+</html>

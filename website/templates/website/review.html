@@ -1,0 +1,364 @@
+{% extends 'website/base.html' %}
+{% block title %}Leave a Review — KickTips{% endblock %}
+{% block meta_desc %}Rate KickTips, leave feedback, or suggest a feature. Every message is read by the team.{% endblock %}
+{% block canonical_path %}/review/{% endblock %}
+
+{% block og_title %}KickTips — Leave a Review{% endblock %}
+{% block og_desc %}How are we doing? Rate KickTips and share your feedback or suggestions.{% endblock %}
+{% block og_path %}/review/{% endblock %}
+
+{% block extra_structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Leave a Review — KickTips",
+  "description": "Rate and review KickTips soccer predictions platform.",
+  "url": "https://kicktips.co.za/review/",
+  "isPartOf": { "@id": "https://kicktips.co.za/#website" }
+}
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .field-group { margin-bottom: 16px; }
+  .field-label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 7px;
+  }
+  .field-label span { color: var(--accent); }
+  .field-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color 0.15s;
+    -webkit-appearance: none;
+  }
+  .field-input::placeholder { color: var(--dim); font-weight: 400; }
+  .field-input:focus { border-color: var(--accent); }
+  .field-input.err { border-color: var(--loss); }
+  select.field-input { cursor: pointer; }
+  textarea.field-input { resize: vertical; min-height: 100px; font-size: 13px; line-height: 1.65; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 540px) { .field-row { grid-template-columns: 1fr; } }
+  .form-err { font-family: var(--mono); font-size: 10px; color: var(--loss); margin-top: 4px; font-weight: 700; letter-spacing: 0.04em; }
+
+  /* Star rating */
+  .star-row { display: flex; gap: 8px; }
+  .star {
+    font-size: 28px;
+    cursor: pointer;
+    color: var(--dim);
+    transition: color 0.12s, transform 0.1s;
+    user-select: none;
+    line-height: 1;
+  }
+  .star:hover, .star.on { color: var(--warn); }
+  .star:hover { transform: scale(1.18); }
+
+  /* Review cards */
+  .review-card {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .review-card:last-child { border-bottom: none; }
+  .rv-stars { font-size: 14px; color: var(--warn); letter-spacing: -1px; flex-shrink: 0; }
+  .rv-meta {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px; right: 20px;
+    background: var(--accent);
+    color: #060608;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 12px 18px;
+    border-radius: var(--radius);
+    z-index: 9999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HEADER -->
+<div style="padding: 48px 0 52px; border-bottom: 1px solid var(--border); margin-bottom: 48px;">
+  <div style="width: 36px; height: 3px; background: var(--accent); margin-bottom: 16px; border-radius: 2px;"></div>
+  <div class="page-eyebrow">Your voice</div>
+  <h1 class="page-title">Leave a Review.</h1>
+  <p class="page-sub">
+    How are we doing? Rate KickTips, leave feedback, or suggest a feature.
+    Every message is read — your input shapes what we build next.
+  </p>
+</div>
+
+<!-- CONTACT STRIP -->
+<div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 16px 20px; margin-bottom: 36px; display: flex; align-items: center;
+            justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+  <div style="font-family: var(--mono); font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.06em;">
+    Prefer email?
+    <a href="mailto:info@kicktips.co.za"
+       style="color: var(--accent); margin-left: 6px; transition: opacity 0.15s;"
+       onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+      info@kicktips.co.za
+    </a>
+  </div>
+  <div style="font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: 0.06em;">
+    We respond within 2 business days
+  </div>
+</div>
+
+<!-- REVIEW FORM -->
+<div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 52px; position: relative;">
+
+  <!-- Top accent bar -->
+  <div style="height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2));"></div>
+
+  <div style="padding: 22px 24px 10px;">
+    <div style="font-family: var(--display); font-size: 1.6rem; letter-spacing: 0.04em; color: var(--text); text-transform: uppercase; line-height: 1; margin-bottom: 4px;">Rate &amp; Review</div>
+    <div style="font-family: var(--mono); font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 0.1em;">Anonymous · Takes 30 seconds</div>
+  </div>
+
+  <div style="padding: 16px 24px 24px;">
+
+    <!-- Stars -->
+    <div class="field-group">
+      <div class="field-label">Overall rating <span>*</span></div>
+      <div class="star-row" id="starRow" role="group" aria-label="Star rating">
+        <span class="star" data-v="1" onclick="setRating(1)" title="1 star — Poor">★</span>
+        <span class="star" data-v="2" onclick="setRating(2)" title="2 stars — Fair">★</span>
+        <span class="star" data-v="3" onclick="setRating(3)" title="3 stars — Good">★</span>
+        <span class="star" data-v="4" onclick="setRating(4)" title="4 stars — Great">★</span>
+        <span class="star" data-v="5" onclick="setRating(5)" title="5 stars — Excellent">★</span>
+      </div>
+      <div id="starLabel" style="font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 5px; font-weight: 600; letter-spacing: 0.06em;"></div>
+      <div class="form-err" id="err-rating" style="display: none;">Please select a rating.</div>
+    </div>
+
+    <div class="field-row">
+      <div class="field-group">
+        <label class="field-label" for="rvName">Name <span style="color: var(--dim);">(optional)</span></label>
+        <input id="rvName" type="text" class="field-input" placeholder="Your name" maxlength="32" autocomplete="off">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="rvType">Category <span>*</span></label>
+        <select id="rvType" class="field-input">
+          <option value="">— Select —</option>
+          <option value="General review">General review</option>
+          <option value="Tip feedback">Tip feedback</option>
+          <option value="Feature suggestion">Feature suggestion</option>
+          <option value="Bug / issue">Bug / issue</option>
+          <option value="Accumulator feedback">Accumulator feedback</option>
+          <option value="Other">Other</option>
+        </select>
+        <div class="form-err" id="err-rvtype" style="display: none;">Required.</div>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="rvMsg">Your message <span>*</span></label>
+      <textarea id="rvMsg" class="field-input"
+        placeholder="Tell us what you think, what you'd like to see, or report an issue..."
+        maxlength="500"></textarea>
+      <div class="form-err" id="err-rvmsg" style="display: none;">Please write a message.</div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
+        <span style="font-family: var(--mono); font-size: 10px; color: var(--dim);" id="rvCount">0 / 500</span>
+      </div>
+    </div>
+
+    <!-- Honeypot — bots fill this, humans don't see it -->
+    <input type="text" id="hp_rv" name="website" tabindex="-1" autocomplete="off"
+           style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;" aria-hidden="true">
+
+    <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-top: 4px;">
+      <button class="btn btn-accent" onclick="submitReview()" style="min-width: 160px;">Submit Review</button>
+      <p style="font-size: 11px; color: var(--dim); font-weight: 300; line-height: 1.4; max-width: 280px;">
+        Your review may be shown on the winners page. No account needed.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- RECENT REVIEWS -->
+<div id="reviewsSection">
+  <div class="section-label" id="reviewsLabel" style="display: none;"></div>
+  <div id="reviewsList"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">Thanks for your review!</div>
+
+<script>
+// ── Helpers ───────────────────────────────────────────────────
+function esc(s) {
+  const d = document.createElement('span');
+  d.textContent = String(s || '');
+  return d.innerHTML;
+}
+function san(s, max) {
+  return String(s || '').replace(/<[^>]*>/g, '').trim().slice(0, max);
+}
+function showErr(id, on) { const e = document.getElementById(id); if (e) e.style.display = on ? 'block' : 'none'; }
+function markErr(id, on) { const e = document.getElementById(id); if (e) e.classList.toggle('err', on); }
+
+function timeAgo(ts) {
+  const d = Date.now() - ts;
+  const m = Math.floor(d / 60000);
+  if (m < 2)  return 'Just now';
+  if (m < 60) return m + 'm ago';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ago';
+  return Math.floor(h / 24) + 'd ago';
+}
+
+// ── Star rating ───────────────────────────────────────────────
+let selectedRating = 0;
+const STAR_LABELS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
+
+function setRating(v) {
+  selectedRating = v;
+  document.querySelectorAll('#starRow .star').forEach((s, i) => s.classList.toggle('on', i < v));
+  const lbl = document.getElementById('starLabel');
+  if (lbl) lbl.textContent = STAR_LABELS[v] || '';
+  showErr('err-rating', false);
+}
+
+// ── Storage ───────────────────────────────────────────────────
+function loadReviews() {
+  try {
+    const raw = localStorage.getItem('kt_reviews');
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.slice(0, 100) : [];
+  } catch(e) { return []; }
+}
+function saveReviews(arr) {
+  try { localStorage.setItem('kt_reviews', JSON.stringify(arr)); } catch(e) {}
+}
+
+// ── Render reviews ────────────────────────────────────────────
+function renderReviews() {
+  const revs  = loadReviews();
+  const label = document.getElementById('reviewsLabel');
+  const list  = document.getElementById('reviewsList');
+  if (!list) return;
+
+  if (!revs.length) {
+    if (label) label.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  if (label) {
+    label.style.display = 'block';
+    label.textContent   = 'Recent reviews — ' + revs.length;
+  }
+
+  list.innerHTML = revs.slice(0, 8).map(r => `
+    <div class="review-card">
+      <div style="flex: 1; min-width: 200px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap;">
+          <span style="font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--text); letter-spacing: 0.04em;">${esc(r.name || 'Anonymous')}</span>
+          <span class="rv-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+          <span style="font-family: var(--mono); font-size: 9px; color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;">${esc(r.type)}</span>
+        </div>
+        <p style="font-size: 13px; color: var(--muted); font-weight: 300; line-height: 1.65;">${esc(r.msg)}</p>
+      </div>
+      <div style="font-family: var(--mono); font-size: 9px; color: var(--dim); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;">${timeAgo(r.ts)}</div>
+    </div>`).join('');
+}
+
+// ── Submit review ─────────────────────────────────────────────
+function submitReview() {
+  // Honeypot
+  if (document.getElementById('hp_rv').value) return;
+
+  const name = san(document.getElementById('rvName').value, 32);
+  const type = san(document.getElementById('rvType').value, 40);
+  const msg  = san(document.getElementById('rvMsg').value, 500);
+
+  let ok = true;
+  if (!selectedRating) { showErr('err-rating', true); ok = false; }
+  showErr('err-rvtype', !type); markErr('rvType', !type); if (!type) ok = false;
+  showErr('err-rvmsg',  !msg);  markErr('rvMsg',  !msg);  if (!msg)  ok = false;
+  if (!ok) return;
+
+  // Session rate limit: max 2 reviews per session
+  const rKey = 'kt_rev_session';
+  const rs   = parseInt(sessionStorage.getItem(rKey) || '0', 10);
+  if (rs >= 2) {
+    alert('You\'ve already submitted a review this session. Thank you!');
+    return;
+  }
+  sessionStorage.setItem(rKey, rs + 1);
+
+  const reviews = loadReviews();
+  reviews.unshift({ name: name || 'Anonymous', type, msg, rating: selectedRating, ts: Date.now() });
+  saveReviews(reviews.slice(0, 100));
+
+  // Reset form
+  document.getElementById('rvName').value = '';
+  document.getElementById('rvType').value = '';
+  document.getElementById('rvMsg').value  = '';
+  document.getElementById('rvCount').textContent = '0 / 500';
+  document.querySelectorAll('#starRow .star').forEach(s => s.classList.remove('on'));
+  selectedRating = 0;
+  const lbl = document.getElementById('starLabel');
+  if (lbl) lbl.textContent = '';
+
+  renderReviews();
+  const t = document.getElementById('toast');
+  if (t) { t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3500); }
+
+  document.getElementById('reviewsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Init ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderReviews();
+
+  const ta  = document.getElementById('rvMsg');
+  const ctr = document.getElementById('rvCount');
+  if (ta && ctr) ta.addEventListener('input', () => { ctr.textContent = ta.value.length + ' / 500'; });
+});
+
+window.addEventListener('storage', e => {
+  if (e.key === 'kt_reviews') renderReviews();
+});
+</script>
+
+{% endblock %}

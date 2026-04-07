@@ -16,6 +16,7 @@ from datetime import date
 from django.core.management.base import BaseCommand
 
 from fixtures.models import Fixture
+from fixtures import api_client
 from fixtures.api_client import fetch_head_to_head, fetch_match_odds
 from predictions.engine import (
     predict_1x2,
@@ -142,6 +143,34 @@ def _build_candidate(fixture):
             time.sleep(0.8)   # avoid 429 — odds + h2h = 2 calls per fixture
         except Exception as exc:
             logger.warning("Odds fetch failed for %s: %s", fixture, exc)
+
+    # ── Corner odds fallback — Soccer Football Info API ───────────────────
+    # If FlashScore returned no corner lines or only 6.5, try the fallback
+    ou_corners = odds.get("ou_corners", {})
+    needs_fallback = (
+        not ou_corners
+        or (len(ou_corners) == 1 and "6.5" in ou_corners)
+    )
+    if needs_fallback and fixture.home_team and fixture.away_team:
+        try:
+            match_date = fixture.kickoff.strftime("%Y%m%d") if fixture.kickoff else ""
+            if match_date:
+                fallback_corners = api_client.fetch_corner_odds_fallback(
+                    home_team=fixture.home_team.name,
+                    away_team=fixture.away_team.name,
+                    match_date=match_date,
+                )
+                if fallback_corners:
+                    odds["ou_corners"] = fallback_corners
+                    logger.info(
+                        "[CornerFallback] Used SoccerInfo corners for %s: %s",
+                        fixture, fallback_corners,
+                    )
+                else:
+                    logger.debug("[CornerFallback] No corners found for %s", fixture)
+            time.sleep(0.5)
+        except Exception as exc:
+            logger.warning("Corner fallback failed for %s: %s", fixture, exc)
 
     # ── Score all markets ─────────────────────────────────────────────────
     scored_raw = {

@@ -387,7 +387,7 @@ def predict_goals(home, away, h2h_results, league, odds=None):
             gap = abs(expected - line)
             # Tightened upper bound from 1.8 to 1.4 — stops borderline Over 3.5
             # tips on matches where expected goals is only marginally above the line
-            if gap < 0.20 or gap > 1.4:
+            if gap < 0.15 or gap > 1.4:
                 continue
 
             over_prob  = probs["over"].get(line, 0)

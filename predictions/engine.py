@@ -42,7 +42,7 @@ MIN_1X2_CONFIDENCE    = 68.0  # 1X2 is weakest market — stricter floor
 MIN_CORNER_CONFIDENCE = 60.0  # Corners — permissive floor, tier+data gates do the work
 MIN_CORNER_DECIMAL    = 1.50  # Corners need decent bookie prices to be worth publishing
 MIN_CORNER_DATA_PTS   = 7     # Both teams need this many games before corners fires
-MIN_DC_FAIR_DECIMAL   = 1.20  # DC covers 2 outcomes — fair price below 1.20 means
+MIN_DC_FAIR_DECIMAL   = 1.18  # DC covers 2 outcomes — fair price below 1.20 means
                                # model says >83% prob, bookmakers also well-priced there
 MIN_GOALS_CONFIDENCE = 63.0  # Goals market — slightly more permissive than global 65%
 # ── No-odds penalty ───────────────────────────────────────────────────────────

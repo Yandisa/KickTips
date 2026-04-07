@@ -410,7 +410,7 @@ def predict_goals(home, away, h2h_results, league, odds=None):
             conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
             conf = round(max(0, min(conf, 82)), 1)
 
-            if conf < MIN_CONFIDENCE:
+            if conf < MIN_GOALS_CONFIDENCE:
                 continue
 
             candidate = {

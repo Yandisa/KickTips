@@ -53,6 +53,11 @@ FS_HOST       = getattr(settings, "FLASHSCORE_API_HOST", "flashscore4.p.rapidapi
 FS_BASE       = getattr(settings, "FLASHSCORE_API_BASE_URL", "https://flashscore4.p.rapidapi.com")
 FS_TIMEOUT    = getattr(settings, "FLASHSCORE_API_TIMEOUT", 20)
 
+# ── Soccer Football Info API ──────────────────────────────────────────────────
+SI_HOST    = getattr(settings, "SOCCER_INFO_API_HOST",    "soccer-football-info.p.rapidapi.com")
+SI_BASE    = getattr(settings, "SOCCER_INFO_API_BASE_URL", "https://soccer-football-info.p.rapidapi.com")
+SI_TIMEOUT = getattr(settings, "SOCCER_INFO_API_TIMEOUT",  15)
+
 # Geo-IP code for odds — use ZA (South Africa) as default
 GEO_IP_CODE = getattr(settings, "ODDS_GEO_IP_CODE", "ZA")
 
@@ -156,6 +161,34 @@ def _get(path: str, params: Optional[dict] = None):
         return resp.json()
     except ValueError:
         logger.error("Invalid JSON from [%s]", path)
+        return None
+
+def _si_get(path: str, params: Optional[dict] = None):
+    """GET a Soccer Football Info endpoint. Returns parsed JSON or None."""
+    if not RAPID_API_KEY:
+        logger.error("RAPID_API_KEY is not set.")
+        return None
+
+    url = f"{SI_BASE}{path}"
+    headers = {
+        "x-rapidapi-key":  RAPID_API_KEY,
+        "x-rapidapi-host": SI_HOST,
+    }
+    try:
+        resp = requests.get(url, headers=headers, params=params or {}, timeout=SI_TIMEOUT)
+        resp.raise_for_status()
+    except requests.HTTPError as exc:
+        code = exc.response.status_code if exc.response is not None else "?"
+        logger.error("SoccerInfo HTTP %s [%s]: %s", code, path, exc)
+        return None
+    except requests.RequestException as exc:
+        logger.error("SoccerInfo request failed [%s]: %s", path, exc)
+        return None
+
+    try:
+        return resp.json()
+    except ValueError:
+        logger.error("Invalid JSON from SoccerInfo [%s]", path)
         return None
 
 
@@ -1000,6 +1033,112 @@ def fetch_fixtures_finished(date_str: str) -> List[dict]:
     logger.info("[fetch_fixtures_finished] Retrieved %d score updates", len(results))
     return results
 
+# ══════════════════════════════════════════════════════════════════════════════
+# 13. CORNER ODDS FALLBACK — Soccer Football Info API
+# ══════════════════════════════════════════════════════════════════════════════
+
+def fetch_corner_odds_fallback(home_team: str, away_team: str, match_date: str) -> dict:
+    """
+    Fetch corner odds from Soccer Football Info API when FlashScore only
+    returns a 6.5 line or nothing at all.
+
+    Cost: 1 call (day list) + 0 if no match found.
+    match_date: "YYYYMMDD" string.
+
+    Returns ou_corners dict in same format as fetch_match_odds:
+    {
+        "9.5":  {"over": 1.875, "under": 1.925},
+        "10.5": {"over": 1.950, "under": 1.850},
+        ...
+    }
+    Empty dict on failure or no match found.
+    """
+    if not home_team or not away_team or not match_date:
+        return {}
+
+    data = _si_get("/matches/day/full/", {
+        "d": match_date,
+        "p": "1",
+        "l": "en_US",
+    })
+
+    if not isinstance(data, dict):
+        return {}
+
+    matches = data.get("result") or []
+    if not isinstance(matches, list):
+        return {}
+
+    # Fuzzy match team names — normalise to lowercase, strip punctuation
+    def _norm(name: str) -> str:
+        import re
+        return re.sub(r"[^a-z0-9]", "", name.lower())
+
+    home_norm = _norm(home_team)
+    away_norm = _norm(away_team)
+
+    best_match = None
+    best_score = 0
+
+    for m in matches:
+        team_a = _norm(m.get("teamA", {}).get("name", ""))
+        team_b = _norm(m.get("teamB", {}).get("name", ""))
+
+        # Score based on substring containment — handles "Man City" vs "Manchester City"
+        score = 0
+        if home_norm in team_a or team_a in home_norm:
+            score += 2
+        if away_norm in team_b or team_b in away_norm:
+            score += 2
+        # Also try reversed (API may list home/away differently)
+        if home_norm in team_b or team_b in home_norm:
+            score += 1
+        if away_norm in team_a or team_a in away_norm:
+            score += 1
+
+        if score > best_score:
+            best_score = score
+            best_match = m
+
+    # Require at least one strong match on each side
+    if best_score < 3 or best_match is None:
+        logger.debug(
+            "[SoccerInfo] No corner odds match found for %s vs %s on %s (best_score=%d)",
+            home_team, away_team, match_date, best_score,
+        )
+        return {}
+
+    # Extract asian_corner odds from the matched fixture
+    odds = best_match.get("odds") or {}
+    live_odds    = odds.get("live") or {}
+    starting_odds = odds.get("starting") or {}
+
+    # Prefer live over starting
+    corner_data = live_odds.get("asian_corner") or starting_odds.get("asian_corner")
+
+    if not corner_data:
+        logger.debug(
+            "[SoccerInfo] Match found (%s vs %s) but no asian_corner odds",
+            best_match.get("teamA", {}).get("name"),
+            best_match.get("teamB", {}).get("name"),
+        )
+        return {}
+
+    # API returns single line: {"o": "1.900", "u": "1.900", "v": "9.5"}
+    # Convert to our multi-line dict format
+    line_str = str(corner_data.get("v") or "").strip()
+    over_v   = _safe_float(corner_data.get("o"))
+    under_v  = _safe_float(corner_data.get("u"))
+
+    if not line_str or over_v is None or under_v is None:
+        return {}
+
+    logger.info(
+        "[SoccerInfo] Corner odds found: %s vs %s → line=%s over=%.3f under=%.3f",
+        home_team, away_team, line_str, over_v, under_v,
+    )
+
+    return {line_str: {"over": over_v, "under": under_v}}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # BACKWARD COMPAT STUBS

@@ -1074,6 +1074,16 @@ def fetch_corner_odds_fallback(home_team: str, away_team: str, match_date: str) 
         import re
         return re.sub(r"[^a-z0-9]", "", name.lower())
 
+    def _partial_match(a: str, b: str) -> bool:
+        # Check if either is a substring of the other
+        # or if they share a significant common prefix (5+ chars)
+        if a in b or b in a:
+            return True
+        min_len = min(len(a), len(b))
+        if min_len >= 5 and a[:5] == b[:5]:
+            return True
+        return False
+
     home_norm = _norm(home_team)
     away_norm = _norm(away_team)
 
@@ -1086,14 +1096,14 @@ def fetch_corner_odds_fallback(home_team: str, away_team: str, match_date: str) 
 
         # Score based on substring containment — handles "Man City" vs "Manchester City"
         score = 0
-        if home_norm in team_a or team_a in home_norm:
+        if _partial_match(home_norm, team_a):
             score += 2
-        if away_norm in team_b or team_b in away_norm:
+        if _partial_match(away_norm, team_b):
             score += 2
-        # Also try reversed (API may list home/away differently)
-        if home_norm in team_b or team_b in home_norm:
+        # Also try reversed
+        if _partial_match(home_norm, team_b):
             score += 1
-        if away_norm in team_a or team_a in away_norm:
+        if _partial_match(away_norm, team_a):
             score += 1
 
         if score > best_score:

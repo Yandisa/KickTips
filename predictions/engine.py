@@ -102,8 +102,12 @@ def _derive_lambdas(home, away, league):
         return getattr(obj, attr, default) or default
 
     avg   = g(league, "avg_goals", 2.65)
-    h_avg = avg * 0.55
-    a_avg = avg * 0.45
+    # Tier-based home advantage — lower leagues have weaker home effect
+    league_tier = getattr(league, "tier", 1) or 1
+    h_split = 0.52 if league_tier >= 2 else 0.55
+    a_split = 1 - h_split
+    h_avg = avg * h_split
+    a_avg = avg * a_split
 
     hgf = g(home, "rw_home_goals_for", 0) or g(home, "home_avg_goals_for", 1.4)
     hga = g(home, "rw_home_goals_against", 0) or g(home, "home_avg_goals_against", 1.1)
@@ -278,6 +282,45 @@ def predict_1x2(home, away, h2h_results, league, odds=None):
         total = hp + dp + ap
         hp /= total; dp /= total; ap /= total
 
+        # Signal agreement — blend Poisson probs with empirical win/draw rates.
+        # When both signals agree confidence rises; when they disagree it falls.
+        # Only apply when team has real historical data (not model defaults).
+        h_wr = getattr(home, "home_win_rate",  0.40) or 0.40
+        a_wr = getattr(away, "away_win_rate",  0.28) or 0.28
+        h_dr = getattr(home, "home_draw_rate", 0.28) or 0.28
+        a_dr = getattr(away, "away_draw_rate", 0.30) or 0.30
+        has_real_rates = (
+            h_wr != 0.40 and a_wr != 0.28   # differ from model defaults
+        )
+        if has_real_rates:
+            # Empirical draw rate = average of both teams home/away draw rates
+            emp_dr = (h_dr + a_dr) / 2
+            # Normalise empirical win rates to sum to 1 with draw
+            total_wr = h_wr + a_wr + emp_dr
+            emp_hp = h_wr / total_wr
+            emp_dp = emp_dr / total_wr
+            emp_ap = a_wr / total_wr
+            # 30% empirical, 70% Poisson — empirical corrects but doesn't dominate
+            EMPIRICAL_WEIGHT = 0.30
+            hp = hp * (1 - EMPIRICAL_WEIGHT) + emp_hp * EMPIRICAL_WEIGHT
+            dp = dp * (1 - EMPIRICAL_WEIGHT) + emp_dp * EMPIRICAL_WEIGHT
+            ap = ap * (1 - EMPIRICAL_WEIGHT) + emp_ap * EMPIRICAL_WEIGHT
+            # Renormalise
+            total = hp + dp + ap
+            hp /= total; dp /= total; ap /= total
+
+            # Signal agreement bonus/penalty — if Poisson and empirical agree
+            # on the winner, add a small confidence boost later
+            poisson_winner = max(
+                [("home", probs["home"]), ("draw", probs["draw"]), ("away", probs["away"])],
+                key=lambda x: x[1])[0]
+            emp_winner = max(
+                [("home", emp_hp), ("draw", emp_dp), ("away", emp_ap)],
+                key=lambda x: x[1])[0]
+            signals_agree = (poisson_winner == emp_winner)
+        else:
+            signals_agree = None
+
         best_prob, tip, odds_key = max(
             [(hp, "Home Win", "home"), (dp, "Draw", "draw"), (ap, "Away Win", "away")],
             key=lambda x: x[0])
@@ -289,6 +332,14 @@ def predict_1x2(home, away, h2h_results, league, odds=None):
 
         cb         = _build_confidence(best_prob, bookie_dec, vc["edge"])
         confidence = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
+
+        # Signal agreement adjustment — ±2pp based on whether Poisson and
+        # empirical win rates point to the same outcome
+        if signals_agree is True:
+            confidence += 2.0   # both models agree — small boost
+        elif signals_agree is False:
+            confidence -= 3.0   # models disagree — penalise more than boost
+
         confidence = round(max(0, min(confidence, 82)), 1)
 
         if confidence < MIN_1X2_CONFIDENCE:
@@ -334,7 +385,9 @@ def predict_goals(home, away, h2h_results, league, odds=None):
         best = None
         for line in GOAL_LINES:
             gap = abs(expected - line)
-            if gap < 0.20 or gap > 1.8:
+            # Tightened upper bound from 1.8 to 1.4 — stops borderline Over 3.5
+            # tips on matches where expected goals is only marginally above the line
+            if gap < 0.20 or gap > 1.4:
                 continue
 
             over_prob  = probs["over"].get(line, 0)
@@ -365,7 +418,8 @@ def predict_goals(home, away, h2h_results, league, odds=None):
                 "expected_value": round(expected, 2),
                 "bookie_decimal": vc["bookie_decimal"], "edge": vc["edge"],
             }
-            if best is None or (vc["edge"] or 0) > (best.get("edge") or 0):
+            # Select by highest confidence — safer tip wins over highest edge tip
+            if best is None or conf > best["confidence"]:
                 best = candidate
 
         return best if best else _skip("no_value")
@@ -395,6 +449,14 @@ def predict_btts(home, away, h2h_results, league, odds=None):
         ab = getattr(away, "away_btts_rate", 0) or 0
         if hb > 0 and ab > 0:
             btts = btts * 0.60 + ((hb + ab) / 2) * 0.40
+
+        # O/U 2.5 rate hint — teams that go over 2.5 frequently tend to have
+        # BTTS in most matches. Small 10% nudge when both rates are available.
+        h_ou25 = getattr(home, "home_ou25_over_rate", 0) or 0
+        a_ou25 = getattr(away, "away_ou25_over_rate", 0) or 0
+        if h_ou25 > 0 and a_ou25 > 0:
+            ou_btts_hint = (h_ou25 + a_ou25) / 2   # avg O/U 2.5 over rate
+            btts = btts * 0.90 + ou_btts_hint * 0.10
 
         # H2H blend
         if h2h_results:

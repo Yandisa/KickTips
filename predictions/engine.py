@@ -44,7 +44,7 @@ MIN_CORNER_DECIMAL    = 1.50  # Corners need decent bookie prices to be worth pu
 MIN_CORNER_DATA_PTS   = 7     # Both teams need this many games before corners fires
 MIN_DC_FAIR_DECIMAL   = 1.20  # DC covers 2 outcomes — fair price below 1.20 means
                                # model says >83% prob, bookmakers also well-priced there
-
+MIN_GOALS_CONFIDENCE = 63.0  # Goals market — slightly more permissive than global 65%
 # ── No-odds penalty ───────────────────────────────────────────────────────────
 NO_ODDS_PENALTY   = 15.0    # pp knocked off confidence when no bookmaker odds
 

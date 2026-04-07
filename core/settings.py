@@ -124,7 +124,6 @@ YOCO_LINK = config("YOCO_LINK", default="")
 # GLOBAL RAPID API KEY
 # =========================
 RAPID_API_KEY = config("RAPID_API_KEY", default="")
-
 # =========================
 # FLASHSCORE API
 # =========================
@@ -132,29 +131,41 @@ FLASHSCORE_API_HOST = config(
     "FLASHSCORE_API_HOST",
     default="flashscore4.p.rapidapi.com",
 )
-
 FLASHSCORE_API_BASE_URL = config(
     "FLASHSCORE_API_BASE_URL",
     default="https://flashscore4.p.rapidapi.com",
 )
-
 FLASHSCORE_API_TIMEOUT = config(
     "FLASHSCORE_API_TIMEOUT",
     default=20,
     cast=int,
 )
-
 FLASHSCORE_MATCH_DETAILS_PATH = config(
     "FLASHSCORE_MATCH_DETAILS_PATH",
     default="/api/flashscore/v2/matches/details",
 )
-
 FLASHSCORE_MATCH_LIST_PATH = config(
     "FLASHSCORE_MATCH_LIST_PATH",
     default="",
 )
-
 FLASHSCORE_MARKETS_PATH = config(
     "FLASHSCORE_MARKETS_PATH",
     default="",
+)
+# =========================
+# SOCCER FOOTBALL INFO API
+# =========================
+SOCCER_INFO_API_KEY = config("SOCCER_INFO_API_KEY", default="")
+SOCCER_INFO_API_HOST = config(
+    "SOCCER_INFO_API_HOST",
+    default="soccer-football-info.p.rapidapi.com",
+)
+SOCCER_INFO_API_BASE_URL = config(
+    "SOCCER_INFO_API_BASE_URL",
+    default="https://soccer-football-info.p.rapidapi.com",
+)
+SOCCER_INFO_API_TIMEOUT = config(
+    "SOCCER_INFO_API_TIMEOUT",
+    default=15,
+    cast=int,
 )

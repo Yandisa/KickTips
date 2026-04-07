@@ -642,3 +642,5 @@ def predict_corners(home, away, referee, h2h_results, league, odds=None):
     except Exception as exc:
         logger.error("Corners error: %s", exc)
         return _skip("insufficient_data")
+
+

@@ -41,9 +41,9 @@ REQUIRE_ODDS       = True    # Main markets require bookmaker odds
 
 # Market-specific floors
 MIN_1X2_CONFIDENCE    = 68.0  # 1X2 is weakest market — stricter floor
-MIN_CORNER_CONFIDENCE = 65.0  # Corners stay strict until proven
+MIN_CORNER_CONFIDENCE = 60.0  # Corners stay strict until proven
 MIN_CORNER_DECIMAL    = 1.50  # Corners need better prices to be worth publishing
-MIN_CORNER_DATA_PTS   = 6     # Match the main trust threshold
+MIN_CORNER_DATA_PTS   = 7     # Match the main trust threshold
 
 # No-odds fallback
 # Keep this only if you allow a market-specific no-odds exception later
@@ -56,7 +56,7 @@ MAX_GOALS = 8
 
 # Lines
 GOAL_LINES   = [1.5, 2.5, 3.5]
-CORNER_LINES = [6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5]
+CORNER_LINES = [7.5, 8.5, 9.5, 10.5, 11.5, 12.5]
 
 # ── Poisson engine ────────────────────────────────────────────────────────────
 

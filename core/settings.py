@@ -155,7 +155,6 @@ FLASHSCORE_MARKETS_PATH = config(
 # =========================
 # SOCCER FOOTBALL INFO API
 # =========================
-SOCCER_INFO_API_KEY = config("SOCCER_INFO_API_KEY", default="")
 SOCCER_INFO_API_HOST = config(
     "SOCCER_INFO_API_HOST",
     default="soccer-football-info.p.rapidapi.com",

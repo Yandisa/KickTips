@@ -629,7 +629,7 @@ def predict_corners(home, away, referee, h2h_results, league, odds=None):
         best = None
         for line in CORNER_LINES:
             gap = abs(expected - line)
-            if gap < 0.25 or gap > 2.5:
+            if gap < 0.25 or gap > 3.5:
                 continue
 
             side     = "Over" if expected > line else "Under"

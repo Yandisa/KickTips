@@ -32,32 +32,31 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # ── Thresholds ────────────────────────────────────────────────────────────────
-MIN_EDGE           = 0.05    # Min edge over bookmaker implied prob (raised from 0.03 — tighter quality gate)
+MIN_EDGE           = 0.05    # Min edge over bookmaker implied prob
 MIN_GAMES          = 6       # Min games for a team stat to be trusted
-MIN_BOOKIE_DECIMAL = 1.25    # Below this the bookmaker implies >80% — skip (lowered from 1.50 to allow DC + Over 1.5)
-MIN_FAIR_DECIMAL   = 1.30    # Below this our model implies >77% — skip
-MIN_CONFIDENCE     = 65.0    # Never publish below this (raised from 63 — fewer but better tips)
-REQUIRE_ODDS       = True    # Never publish without real bookmaker odds — no odds = no edge
+MIN_BOOKIE_DECIMAL = 1.25    # Global bookmaker floor for main markets
+MIN_FAIR_DECIMAL   = 1.30    # Keep for now, but monitor closely after rollout
+MIN_CONFIDENCE     = 65.0    # Global publish floor
+REQUIRE_ODDS       = True    # Main markets require bookmaker odds
 
-# Corners-specific floor — corners markets are sharp and low-liquidity.
-# A corners tip at 1.40 decimal odds returns R0.40 per R1 — not worth the risk.
-# Only publish corners when the bookmaker is offering real value.
-MIN_CORNER_DECIMAL   = 1.65   # Minimum decimal odds for any corners tip
-MIN_CORNER_DATA_PTS  = 5      # Minimum matches with real corner data per team
-MIN_1X2_CONFIDENCE  = 68.0    # 1X2 is weakest market — stricter floor than global 65%
-MIN_CORNER_CONFIDENCE = 68.0  # Corners market — strict floor until model is proven
+# Market-specific floors
+MIN_1X2_CONFIDENCE    = 68.0  # 1X2 is weakest market — stricter floor
+MIN_CORNER_CONFIDENCE = 65.0  # Corners stay strict until proven
+MIN_CORNER_DECIMAL    = 1.50  # Corners need better prices to be worth publishing
+MIN_CORNER_DATA_PTS   = 6     # Match the main trust threshold
 
-# No-odds fallback: publish but knock confidence
-NO_ODDS_PENALTY   = 15.0    # pp knocked off confidence when no bookmaker odds available
+# No-odds fallback
+# Keep this only if you allow a market-specific no-odds exception later
+# (for example corners). Otherwise it is effectively unused.
+NO_ODDS_PENALTY    = 15.0
 
 # Dixon-Coles correction
-RHO      = 0.10
+RHO       = 0.10
 MAX_GOALS = 8
 
 # Lines
 GOAL_LINES   = [1.5, 2.5, 3.5]
-CORNER_LINES = [7.5, 8.5, 9.5, 10.5, 11.5, 12.5]
-
+CORNER_LINES = [6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5]
 
 # ── Poisson engine ────────────────────────────────────────────────────────────
 

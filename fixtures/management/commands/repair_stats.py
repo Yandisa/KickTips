@@ -92,16 +92,29 @@ class Command(BaseCommand):
                 win_rate  = round(won   / played, 3)
                 draw_rate = round(drawn / played, 3)
 
-                team.games_played            = played
-                team.home_avg_goals_for      = avg_gf
-                team.home_avg_goals_against  = avg_ga
-                team.away_avg_goals_for      = avg_gf
-                team.away_avg_goals_against  = avg_ga
-                team.home_win_rate           = win_rate
-                team.away_win_rate           = win_rate
-                team.home_draw_rate          = draw_rate
-                team.away_draw_rate          = draw_rate
-                team.save()
+                # repair_stats only has overall season totals from standings,
+                # not the home/away split. Only update fields that are still
+                # at their model defaults — don't overwrite real home/away
+                # stats that fetch_fixtures already populated correctly.
+                update_fields = ["games_played", "home_win_rate", "away_win_rate",
+                                 "home_draw_rate", "away_draw_rate"]
+                team.games_played   = played
+                team.home_win_rate  = win_rate
+                team.away_win_rate  = win_rate
+                team.home_draw_rate = draw_rate
+                team.away_draw_rate = draw_rate
+
+                # Only overwrite goals if still at hard defaults (1.5/1.2)
+                # — means fetch_fixtures never populated real home/away stats
+                if team.home_avg_goals_for == 1.5 and team.away_avg_goals_for == 1.2:
+                    team.home_avg_goals_for     = avg_gf
+                    team.home_avg_goals_against = avg_ga
+                    team.away_avg_goals_for     = avg_gf
+                    team.away_avg_goals_against = avg_ga
+                    update_fields += ["home_avg_goals_for", "home_avg_goals_against",
+                                      "away_avg_goals_for", "away_avg_goals_against"]
+
+                team.save(update_fields=update_fields)
                 needy.discard(team.id)
                 updated += 1
                 self.stdout.write(

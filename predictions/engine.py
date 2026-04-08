@@ -648,18 +648,22 @@ def predict_corners(home, away, referee, h2h_results, league, odds=None):
             over_prob  = 1 - _ncdf(z)
             model_prob = over_prob if side == "Over" else 1 - over_prob
 
+            # Corners: never require bookie odds — fire on model data alone
             bookie_dec = None
             if odds and "ou_corners" in odds:
                 bookie_dec = odds["ou_corners"].get(str(line), {}).get(odds_key)
+                if bookie_dec is not None and bookie_dec < MIN_CORNER_DECIMAL:
+                    continue
 
-            if bookie_dec is not None and bookie_dec < MIN_CORNER_DECIMAL:
-                continue
+            edge = None
+            if bookie_dec is not None:
+                bookie_implied = 1.0 / bookie_dec
+                edge = round(model_prob - bookie_implied, 4)
+                if edge < MIN_EDGE:
+                    continue
 
-            vc = _value_check(model_prob, bookie_dec)
-            if not vc["has_value"]:
-                continue
-
-            cb   = _build_confidence(model_prob, bookie_dec, vc["edge"])
+            cb   = _build_confidence(model_prob, bookie_dec, edge)
+            vc   = {"has_value": True, "edge": edge, "bookie_decimal": bookie_dec}
             conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
             conf = round(max(0, min(conf, 82)), 1)
 

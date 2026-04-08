@@ -4,16 +4,17 @@ from django.db import models
 class League(models.Model):
     TIER_CHOICES = [(1, 'Deep'), (2, 'Basic'), (3, 'Skip')]
 
-    api_id       = models.IntegerField(unique=True)
-    name         = models.CharField(max_length=100)
-    country      = models.CharField(max_length=100)
-    tier         = models.IntegerField(choices=TIER_CHOICES, default=1)
-    active       = models.BooleanField(default=True)
-    season       = models.IntegerField(default=2025)
-    avg_goals    = models.FloatField(default=2.5)
-    avg_corners  = models.FloatField(default=10.0)
-    avg_cards    = models.FloatField(default=3.5)
-    last_updated = models.DateTimeField(auto_now=True)
+    api_id         = models.IntegerField(unique=True)
+    name           = models.CharField(max_length=100)
+    country        = models.CharField(max_length=100)
+    tier           = models.IntegerField(choices=TIER_CHOICES, default=1)
+    active         = models.BooleanField(default=True)
+    season         = models.IntegerField(default=2025)
+    avg_goals      = models.FloatField(default=2.5)
+    avg_corners    = models.FloatField(default=10.0)
+    avg_cards      = models.FloatField(default=3.5)
+    last_updated   = models.DateTimeField(auto_now=True)
+    tournament_url = models.CharField(max_length=200, blank=True, default='')
 
     def __str__(self):
         return f"{self.name} ({self.country})"

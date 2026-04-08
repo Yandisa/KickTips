@@ -112,7 +112,7 @@ KNOWN_TOURNAMENT_URLS: Dict[str, dict] = {
     # ── Tier 1: Asia/Middle East ──────────────────────────────────────────
     "/football/saudi-arabia/saudi-pro-league/": {"name": "Saudi Pro League",    "country": "Saudi Arabia", "tier": 1, "api_id": 307},
     "/football/japan/j1-league/":             {"name": "J1 League",             "country": "Japan",        "tier": 1, "api_id": 98},
-    "/football/south-korea/k-league-1/":      {"name": "K League 1",            "country": "South Korea",  "tier": 1, "api_id": 292},
+    "/football/south-korea/k-league-1/":      {"name": "K League 1",            "country": "South Korea",  "tier": 1, "api_id": 871},
     "/football/china/super-league/":          {"name": "Chinese Super League",  "country": "China",        "tier": 1, "api_id": 169},
     "/football/australia/a-league/":          {"name": "A-League",              "country": "Australia",    "tier": 1, "api_id": 188},
     # ── Tier 2: Second divisions ──────────────────────────────────────────

@@ -135,9 +135,27 @@ class Command(BaseCommand):
 
         self._update_record(target_date)
 
+        # ── Grade accumulators for today ──────────────────────────────────────
+        self._grade_accumulators(target_date)
+
         self.stdout.write(self.style.SUCCESS(
             f"Grading complete: {graded} tips | {won} won, {lost} lost, {void_count} void ✅"
         ))
+
+    def _grade_accumulators(self, target_date):
+        """Grade any accumulators for today whose legs have all settled."""
+        try:
+            from predictions.models import Accumulator
+            accas = Accumulator.objects.filter(date=target_date, result='pending')
+            for acca in accas:
+                acca.grade()
+                if acca.result != 'pending':
+                    self.stdout.write(
+                        f"  Acca graded: {acca.get_tier_display()} → {acca.result.upper()}"
+                        f" ({acca.legs_count} legs @ {acca.combined_odds}x)"
+                    )
+        except Exception as exc:
+            logger.warning("Accumulator grading failed: %s", exc)
 
     def _update_scores(self, date_str: str) -> int:
         """

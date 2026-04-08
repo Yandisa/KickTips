@@ -128,7 +128,10 @@ def _derive_lambdas(home, away, league):
     def g(obj, attr, default=0.0):
         return getattr(obj, attr, default) or default
 
-    avg   = g(league, "avg_goals", 2.65)
+    # Use dynamically computed league average when available (injected by
+    # run_predictions from actual finished fixtures). Falls back to the
+    # static League.avg_goals field which is a reasonable league-level default.
+    avg   = g(league, "computed_avg_goals", None) or g(league, "avg_goals", 2.65)
     # Tier-based home advantage — lower leagues have weaker home effect
     league_tier = getattr(league, "tier", 1) or 1
     h_split = 0.52 if league_tier >= 2 else 0.55
@@ -144,12 +147,14 @@ def _derive_lambdas(home, away, league):
     mu_h = (hgf / h_avg) * (aga / h_avg) * h_avg if h_avg > 0 else 1.4
     mu_a = (agf / a_avg) * (hga / a_avg) * a_avg if a_avg > 0 else 1.1
 
-    # xG blend — only when real xG data is available
+    # xG blend — xG is a fundamentally better predictor than raw goals because
+    # it strips out finishing luck. When real xG data is available, weight it
+    # 70% xG vs 30% raw Poisson — not equal weight.
     hxg = g(home, "home_xg_for", 0)
     axg = g(away, "away_xg_for", 0)
     if hxg > 0 and axg > 0:
-        mu_h = mu_h * 0.5 + hxg * 0.5
-        mu_a = mu_a * 0.5 + axg * 0.5
+        mu_h = mu_h * 0.30 + hxg * 0.70
+        mu_a = mu_a * 0.30 + axg * 0.70
 
     # O/U 2.5 rate blend — real match history more reliable than pure Poisson
     # for teams with consistent styles (e.g. low-block sides)
@@ -169,10 +174,15 @@ def _derive_lambdas(home, away, league):
             mu_a *= scale
 
     # League position quality adjustment
+    # Use actual league size if stored, otherwise fall back to sensible defaults
+    # by tier (Tier 1 top flights typically 18-20 teams, Tier 2 varies).
     h_pos = getattr(home, "league_position", None)
     a_pos = getattr(away, "league_position", None)
-    league_size = 18
-    if h_pos and a_pos:
+    league_size = (
+        getattr(league, "team_count", None)
+        or (20 if league_tier == 1 else 18)
+    )
+    if h_pos and a_pos and league_size > 0:
         h_rank_norm  = h_pos / league_size
         a_rank_norm  = a_pos / league_size
         quality_diff = a_rank_norm - h_rank_norm
@@ -183,12 +193,26 @@ def _derive_lambdas(home, away, league):
     return max(0.3, min(mu_h, 5.0)), max(0.3, min(mu_a, 5.0))
 
 
+# ── Per-market confidence priors ──────────────────────────────────────────────
+# Shrinkage target should reflect the natural base rate for each market,
+# not a single universal 55%. Shrinking BTTS toward 55% is fine; shrinking
+# DC toward 55% is wrong — DC covers 2 outcomes so ~65% is the natural base.
+MARKET_PRIORS = {
+    "btts":     50.0,   # binary, roughly 50/50 split across all matches
+    "ou_goals": 52.0,   # O/U 2.5 goes over ~52% of matches on average
+    "1x2":      45.0,   # home/draw/away — home wins ~45%, so 45% is midpoint
+    "dc":       65.0,   # covers 2/3 outcomes — natural base ~65%
+    "corners":  52.0,   # symmetric market
+}
+PRIOR_DEFAULT = 55.0    # fallback if market not in table
+SHRINK        = 0.25    # reduced from 0.30 — less shrinkage once priors are correct
+
 # ── Confidence builder ────────────────────────────────────────────────────────
 
-def _build_confidence(model_prob: float, bookie_decimal: Optional[float], edge: Optional[float]) -> dict:
+def _build_confidence(model_prob: float, bookie_decimal: Optional[float], edge: Optional[float], market: str = "") -> dict:
     """
     Build confidence from model probability + bookmaker edge.
-    Platt-style shrinkage toward 55% prior prevents overconfidence.
+    Shrinks toward a market-specific prior rather than a universal 55%.
     """
     base = model_prob * 100
 
@@ -200,9 +224,8 @@ def _build_confidence(model_prob: float, bookie_decimal: Optional[float], edge: 
         raw      = base - NO_ODDS_PENALTY
         has_odds = False
 
-    PRIOR  = 55.0
-    SHRINK = 0.30
-    conf   = (1 - SHRINK) * raw + SHRINK * PRIOR
+    prior = MARKET_PRIORS.get(market, PRIOR_DEFAULT)
+    conf  = (1 - SHRINK) * raw + SHRINK * prior
 
     return {
         "confidence": round(min(max(conf, 0), 82), 1),
@@ -367,7 +390,7 @@ def predict_1x2(home, away, h2h_results, league, odds=None):
         if not vc["has_value"]:
             return _skip("no_value")
 
-        cb         = _build_confidence(best_prob, bookie_dec, vc["edge"])
+        cb         = _build_confidence(best_prob, bookie_dec, vc["edge"], market="1x2")
         confidence = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
 
         # Signal agreement adjustment — ±2pp based on whether Poisson and
@@ -437,7 +460,7 @@ def predict_goals(home, away, h2h_results, league, odds=None):
             vc = _value_check(model_prob, bookie_dec)
             if not vc["has_value"]:
                 continue
-            cb   = _build_confidence(model_prob, bookie_dec, vc["edge"])
+            cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="ou_goals")
             conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
             conf = round(max(0, min(conf, 82)), 1)
             if conf < MIN_GOALS_CONFIDENCE:
@@ -506,7 +529,7 @@ def predict_btts(home, away, h2h_results, league, odds=None):
         if not vc["has_value"]:
             return _skip("no_value")
 
-        cb   = _build_confidence(model_prob, bookie_dec, vc["edge"])
+        cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="btts")
         conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
         conf = round(max(0, min(conf, 82)), 1)
 
@@ -587,7 +610,7 @@ def predict_double_chance(home, away, h2h_results, league, odds=None):
             if not vc["has_value"]:
                 return _skip("no_value")
 
-        cb   = _build_confidence(model_prob, bookie_dec, vc["edge"])
+        cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="dc")
         # Cap DC at 78 — safety market, not a high-confidence call
         conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
         conf = round(max(0, min(conf, 78)), 1)
@@ -689,7 +712,7 @@ def predict_corners(home, away, referee, h2h_results, league, odds=None):
                 if edge < MIN_EDGE:
                     continue
 
-            cb   = _build_confidence(model_prob, bookie_dec, edge)
+            cb   = _build_confidence(model_prob, bookie_dec, edge, market="corners")
             vc   = {"has_value": True, "edge": edge, "bookie_decimal": bookie_dec}
             conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
             conf = round(max(0, min(conf, 82)), 1)

@@ -137,7 +137,7 @@ FLASHSCORE_API_BASE_URL = config(
 )
 FLASHSCORE_API_TIMEOUT = config(
     "FLASHSCORE_API_TIMEOUT",
-    default=20,
+    default=35,
     cast=int,
 )
 FLASHSCORE_MATCH_DETAILS_PATH = config(

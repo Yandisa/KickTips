@@ -63,3 +63,73 @@ class Prediction(models.Model):
     class Meta:
         ordering = ['-confidence']
         unique_together = ['fixture', 'market']
+
+
+class Accumulator(models.Model):
+    """
+    A daily accumulator snapshot — one record per tier per day.
+    Legs are stored as AccumulatorLeg records so we can grade each one
+    independently and derive the overall acca result honestly.
+    """
+    TIER_CHOICES = [
+        ('faka_yonke',  'Faka Yonke'),
+        ('shaya_zonke', 'Shaya Zonke'),
+        ('istimela',    'Istimela'),
+    ]
+    RESULT_CHOICES = [
+        ('pending', 'Pending'),
+        ('won',     'Won'),
+        ('lost',    'Lost'),
+        ('void',    'Void'),
+    ]
+
+    date          = models.DateField()
+    tier          = models.CharField(max_length=20, choices=TIER_CHOICES)
+    combined_odds = models.FloatField(null=True, blank=True)
+    legs_count    = models.IntegerField(default=0)
+    result        = models.CharField(max_length=10, choices=RESULT_CHOICES, default='pending')
+    created_at    = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['date', 'tier']
+        ordering = ['date', 'tier']
+
+    def __str__(self):
+        return f"{self.get_tier_display()} {self.date} ({self.legs_count} legs @ {self.combined_odds}x) → {self.result}"
+
+    def grade(self):
+        """
+        Grade this accumulator from its legs.
+        Won only if every leg won. Lost if any leg lost. Void if all remaining void.
+        """
+        legs = list(self.legs.select_related('prediction').all())
+        if not legs:
+            return
+
+        results = [leg.prediction.result for leg in legs]
+
+        if 'pending' in results:
+            return  # not all settled yet
+
+        if any(r == 'lost' for r in results):
+            self.result = 'lost'
+        elif all(r == 'won' for r in results):
+            self.result = 'won'
+        else:
+            self.result = 'void'
+
+        self.save(update_fields=['result'])
+
+
+class AccumulatorLeg(models.Model):
+    """One tip inside an accumulator."""
+    accumulator = models.ForeignKey(Accumulator, on_delete=models.CASCADE, related_name='legs')
+    prediction  = models.ForeignKey(Prediction,  on_delete=models.CASCADE, related_name='acca_legs')
+    leg_odds    = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ['accumulator', 'prediction']
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.accumulator.get_tier_display()} | {self.prediction.fixture} | {self.prediction.tip}"

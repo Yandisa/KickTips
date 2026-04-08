@@ -362,26 +362,22 @@ def predict_1x2(home, away, h2h_results, league, odds=None):
 # ══════════════════════════════════════════════════════════════════════════════
 # MARKET 2: Over/Under Goals
 # ══════════════════════════════════════════════════════════════════════════════
-
 def predict_goals(home, away, h2h_results, league, odds=None):
     try:
         def _has_data(t):
             return (getattr(t, "games_played", 0) or 0) >= MIN_GAMES
         if not (_has_data(home) and _has_data(away)):
             return _skip("insufficient_data")
-
         mu_h, mu_a = _derive_lambdas(home, away, league)
         matrix     = _build_matrix(mu_h, mu_a)
         probs      = _matrix_probs(matrix)
         expected   = mu_h + mu_a
-
         # H2H goals blend
         if h2h_results:
             h2h_g = [(r.get("home_score") or 0) + (r.get("away_score") or 0)
                      for r in h2h_results if r.get("home_score") is not None]
             if h2h_g:
                 expected = expected * 0.75 + (sum(h2h_g)/len(h2h_g)) * 0.25
-
         best = None
         for line in GOAL_LINES:
             gap = abs(expected - line)
@@ -389,7 +385,8 @@ def predict_goals(home, away, h2h_results, league, odds=None):
             # tips on matches where expected goals is only marginally above the line
             if gap < 0.15 or gap > 1.4:
                 continue
-
+            over_prob  = probs["over"].get(line, 0)
+            under_prob = 1 - over_prob
             if over_prob >= under_prob:
                 model_prob, side, odds_key = over_prob,  "Over",  "over"
             else:
@@ -400,18 +397,14 @@ def predict_goals(home, away, h2h_results, league, odds=None):
             bookie_dec = None
             if odds and "ou_goals" in odds:
                 bookie_dec = odds["ou_goals"].get(str(line), {}).get(odds_key)
-
             vc = _value_check(model_prob, bookie_dec)
             if not vc["has_value"]:
                 continue
-
             cb   = _build_confidence(model_prob, bookie_dec, vc["edge"])
             conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
             conf = round(max(0, min(conf, 82)), 1)
-
             if conf < MIN_GOALS_CONFIDENCE:
                 continue
-
             candidate = {
                 "tip": f"{side} {line}", "confidence": conf, "skip_reason": "",
                 "expected_value": round(expected, 2),
@@ -420,12 +413,10 @@ def predict_goals(home, away, h2h_results, league, odds=None):
             # Select by highest confidence — safer tip wins over highest edge tip
             if best is None or conf > best["confidence"]:
                 best = candidate
-
         return best if best else _skip("no_value")
     except Exception as exc:
         logger.error("Goals error: %s", exc)
         return _skip("insufficient_data")
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MARKET 3: BTTS

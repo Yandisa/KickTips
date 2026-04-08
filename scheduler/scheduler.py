@@ -35,33 +35,47 @@ logger = logging.getLogger(__name__)
 
 
 def evening_pipeline():
-    """Fetch history + tomorrow's fixtures + publish predictions."""
+    """Fetch history + tomorrow's fixtures + publish predictions + snapshot accas."""
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
     logger.info("=== Scheduler: Evening pipeline starting (target: %s) ===", tomorrow)
 
-    # Step 1: backfill history for teams playing in the next 7 days
-    # Skips teams already at 6+ matches — very cheap on subsequent days
     try:
         call_command("fetch_history")
         logger.info("fetch_history complete")
     except Exception as exc:
         logger.error("fetch_history failed: %s", exc)
-        # non-fatal — continue with whatever history is in DB
 
-    # Step 2: fetch tomorrow's fixtures + enrich team stats
     try:
         call_command("fetch_fixtures", tomorrow=True)
         logger.info("fetch_fixtures complete")
     except Exception as exc:
         logger.error("fetch_fixtures --tomorrow failed: %s", exc)
-        return  # don't publish predictions without fresh fixtures
+        return
 
-    # Step 3: score and publish predictions for tomorrow
     try:
         call_command("run_predictions", date=tomorrow)
         logger.info("run_predictions complete for %s", tomorrow)
     except Exception as exc:
         logger.error("run_predictions failed: %s", exc)
+        return  # no point snapshotting accas if predictions failed
+
+    # Snapshot accumulators immediately after predictions are published
+    # so they're stored as a fixed record — not rebuilt dynamically each view
+    try:
+        call_command("save_accumulators", date=tomorrow)
+        logger.info("save_accumulators complete for %s", tomorrow)
+    except Exception as exc:
+        logger.error("save_accumulators failed: %s", exc)
+
+
+def closing_odds_pipeline():
+    """Capture closing bookmaker lines ~1.5hr before main European kickoffs."""
+    logger.info("=== Scheduler: Closing odds refresh ===")
+    try:
+        call_command("refresh_odds")
+        logger.info("refresh_odds complete")
+    except Exception as exc:
+        logger.error("refresh_odds failed: %s", exc)
 
 
 def grade_pipeline():
@@ -81,10 +95,23 @@ def start():
     scheduler = BackgroundScheduler(timezone="Africa/Johannesburg")
     scheduler.add_jobstore(DjangoJobStore(), "default")
 
-    # ── Evening: fetch tomorrow's fixtures + publish tips ────────────────
+    # ── Evening: fetch tomorrow's fixtures + publish tips + snapshot accas ──
     scheduler.add_job(
         evening_pipeline, "cron", hour=20, minute=0,
         id="evening_pipeline", replace_existing=True,
+    )
+
+    # ── Closing odds: capture bookmaker lines before kickoff ─────────────
+    # Two runs cover both afternoon and evening European matches (SAST):
+    #   13:30 → European 14:00+ kickoffs (15:00 CET / 13:00 UTC)
+    #   18:30 → European 19:00+ kickoffs (20:00 CET / 18:00 UTC)
+    scheduler.add_job(
+        closing_odds_pipeline, "cron", hour=13, minute=30,
+        id="closing_odds_afternoon", replace_existing=True,
+    )
+    scheduler.add_job(
+        closing_odds_pipeline, "cron", hour=18, minute=30,
+        id="closing_odds_evening", replace_existing=True,
     )
 
     # ── Grade pipeline: 5 runs across the match day ──────────────────────
@@ -102,6 +129,6 @@ def start():
 
     scheduler.start()
     logger.info(
-        "Scheduler started — evening pipeline: 20:00 SAST | "
-        "grade pipeline: 06:00, 10:00, 14:00, 18:00, 23:00 SAST"
+        "Scheduler started — evening: 20:00 | closing odds: 13:30, 18:30 | "
+        "grade: 06:00, 10:00, 14:00, 18:00, 23:00 SAST"
     )

@@ -267,9 +267,11 @@ def _build_candidate(fixture):
 
 def _load_h2h(fixture):
     from fixtures.models import Fixture as Fix
+    from django.utils import timezone as tz
 
     home = fixture.home_team
     away = fixture.away_team
+    now  = tz.now()
 
     db_h2h = Fix.objects.filter(
         home_team__in=[home, away],
@@ -285,6 +287,8 @@ def _load_h2h(fixture):
             "away_score":    f.away_score,
             "winner":        f.result,
             "total_corners": f.total_corners,
+            # days_ago enables time decay in the engine — recent H2H weighted more
+            "days_ago": max(0, (now - f.kickoff).days) if f.kickoff else 365,
         }
         for f in db_h2h
     ]
@@ -297,7 +301,7 @@ def _load_h2h(fixture):
         try:
             time.sleep(0.8)
             api_h2h = fetch_head_to_head(venue[3:], last=8)
-            for item in api_h2h:
+            for i, item in enumerate(api_h2h):
                 h = item.get("home_score")
                 a = item.get("away_score")
                 if h is None or a is None:
@@ -307,6 +311,8 @@ def _load_h2h(fixture):
                     "away_score":    a,
                     "winner":        "home" if h > a else ("away" if a > h else "draw"),
                     "total_corners": None,
+                    # API h2h has no timestamp — assume roughly 3 months apart
+                    "days_ago": 90 * (i + 1),
                 })
         except Exception as exc:
             logger.warning("H2H API failed: %s", exc)

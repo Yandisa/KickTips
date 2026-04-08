@@ -308,6 +308,25 @@ def _lineup_penalty(home, away) -> float:
 def _skip(reason): return {"skip_reason": reason, "tip": "", "confidence": 0}
 
 
+# ── H2H time-decay weighting ──────────────────────────────────────────────────
+
+def _h2h_weights(h2h_results: list) -> list:
+    """
+    Return exponential decay weights for H2H results based on days_ago.
+    Half-life = 365 days — a match from 1 year ago gets weight ~0.37,
+    2 years ago ~0.14, so recent meetings dominate the blend.
+    If days_ago is not in the result dict (API h2h), use position-based fallback.
+    """
+    import math as _math
+    HALF_LIFE = 365.0
+    weights = []
+    for i, r in enumerate(h2h_results):
+        days = r.get("days_ago", 90 * (i + 1))
+        w = _math.exp(-days * _math.log(2) / HALF_LIFE)
+        weights.append(max(w, 0.01))
+    return weights
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MARKET 1: 1X2
 # ══════════════════════════════════════════════════════════════════════════════
@@ -328,13 +347,15 @@ def predict_1x2(home, away, h2h_results, league, odds=None):
         hp *= _form_factor(getattr(home, "form_home", "") or "")
         ap *= _form_factor(getattr(away, "form_away", "") or "")
 
-        # H2H proportional blend
+        # H2H proportional blend — time-decayed so recent meetings dominate
         if h2h_results:
-            n          = len(h2h_results)
-            hw_rate    = sum(1 for r in h2h_results if r.get("winner") == "home") / n
-            aw_rate    = sum(1 for r in h2h_results if r.get("winner") == "away") / n
-            dr_rate    = 1 - hw_rate - aw_rate
-            h2h_weight = min(n / 20, 0.25)
+            weights  = _h2h_weights(h2h_results)
+            total_w  = sum(weights)
+            hw_rate  = sum(w for r, w in zip(h2h_results, weights) if r.get("winner") == "home") / total_w
+            aw_rate  = sum(w for r, w in zip(h2h_results, weights) if r.get("winner") == "away") / total_w
+            dr_rate  = 1 - hw_rate - aw_rate
+            # Weight by effective sample size (sum of weights), capped at 0.25
+            h2h_weight = min(total_w / 20, 0.25)
             hp = hp * (1 - h2h_weight) + hw_rate * h2h_weight
             dp = dp * (1 - h2h_weight) + dr_rate * h2h_weight
             ap = ap * (1 - h2h_weight) + aw_rate * h2h_weight
@@ -432,12 +453,20 @@ def predict_goals(home, away, h2h_results, league, odds=None):
         matrix     = _build_matrix(mu_h, mu_a)
         probs      = _matrix_probs(matrix)
         expected   = mu_h + mu_a
-        # H2H goals blend
+        # H2H goals blend — time-decayed weighted average
         if h2h_results:
-            h2h_g = [(r.get("home_score") or 0) + (r.get("away_score") or 0)
-                     for r in h2h_results if r.get("home_score") is not None]
-            if h2h_g:
-                expected = expected * 0.75 + (sum(h2h_g)/len(h2h_g)) * 0.25
+            weights = _h2h_weights(h2h_results)
+            h2h_pairs = [
+                (r, w) for r, w in zip(h2h_results, weights)
+                if r.get("home_score") is not None
+            ]
+            if h2h_pairs:
+                total_w = sum(w for _, w in h2h_pairs)
+                h2h_avg = sum(
+                    ((r.get("home_score") or 0) + (r.get("away_score") or 0)) * w
+                    for r, w in h2h_pairs
+                ) / total_w
+                expected = expected * 0.75 + h2h_avg * 0.25
         best = None
         for line in GOAL_LINES:
             gap = abs(expected - line)
@@ -451,9 +480,6 @@ def predict_goals(home, away, h2h_results, league, odds=None):
                 model_prob, side, odds_key = over_prob,  "Over",  "over"
             else:
                 model_prob, side, odds_key = under_prob, "Under", "under"
-            # Block unreliable tip types globally
-            if side == "Under" and line == 1.5:
-                continue
             bookie_dec = None
             if odds and "ou_goals" in odds:
                 bookie_dec = odds["ou_goals"].get(str(line), {}).get(odds_key)
@@ -508,11 +534,15 @@ def predict_btts(home, away, h2h_results, league, odds=None):
             ou_btts_hint = (h_ou25 + a_ou25) / 2   # avg O/U 2.5 over rate
             btts = btts * 0.90 + ou_btts_hint * 0.10
 
-        # H2H blend
+        # H2H blend — time-decayed
         if h2h_results:
-            h2h_btts = sum(1 for r in h2h_results
-                           if (r.get("home_score") or 0) > 0 and (r.get("away_score") or 0) > 0)
-            btts = btts * 0.80 + (h2h_btts / len(h2h_results)) * 0.20
+            weights = _h2h_weights(h2h_results)
+            total_w = sum(weights)
+            h2h_btts_rate = sum(
+                w for r, w in zip(h2h_results, weights)
+                if (r.get("home_score") or 0) > 0 and (r.get("away_score") or 0) > 0
+            ) / total_w
+            btts = btts * 0.80 + h2h_btts_rate * 0.20
 
         no_btts = 1 - btts
 

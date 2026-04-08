@@ -1,8 +1,14 @@
 """
-KickTips API Client — FlashScore Edition (v2 — Deep Enrichment)
-================================================================
+KickTips API Client — FlashScore Edition (v3 — DB-driven tournaments)
+======================================================================
 All data sourced from FlashScore via RapidAPI.
 Host: flashscore4.p.rapidapi.com
+
+Changes from v2:
+  - Tournament/league filtering is now DB-driven via League.tournament_url
+  - KNOWN_TOURNAMENT_URLS dict is used only as a seed reference
+  - New leagues can be added via Django admin without code changes
+  - _resolve_league_info now queries DB first, falls back to dict
 
 Endpoints used:
   Existing (unchanged):
@@ -51,7 +57,7 @@ logger = logging.getLogger(__name__)
 RAPID_API_KEY = getattr(settings, "RAPID_API_KEY", "")
 FS_HOST       = getattr(settings, "FLASHSCORE_API_HOST", "flashscore4.p.rapidapi.com")
 FS_BASE       = getattr(settings, "FLASHSCORE_API_BASE_URL", "https://flashscore4.p.rapidapi.com")
-FS_TIMEOUT    = getattr(settings, "FLASHSCORE_API_TIMEOUT", 20)
+FS_TIMEOUT    = getattr(settings, "FLASHSCORE_API_TIMEOUT", 35)
 
 # ── Soccer Football Info API ──────────────────────────────────────────────────
 SI_HOST    = getattr(settings, "SOCCER_INFO_API_HOST",    "soccer-football-info.p.rapidapi.com")
@@ -61,70 +67,131 @@ SI_TIMEOUT = getattr(settings, "SOCCER_INFO_API_TIMEOUT",  15)
 # Geo-IP code for odds — use ZA (South Africa) as default
 GEO_IP_CODE = getattr(settings, "ODDS_GEO_IP_CODE", "ZA")
 
+# ── Seed data — used only to populate DB on first run ────────────────────────
+# To add a new league: add it here AND in Django admin (or just admin after seeding)
 KNOWN_TOURNAMENT_URLS: Dict[str, dict] = {
     # ── Tier 1: Elite European + continental ──────────────────────────────
-    "/football/england/premier-league/":     {"name": "Premier League",      "country": "England",      "tier": 1, "api_id": 39},
-    "/football/spain/laliga/":               {"name": "La Liga",              "country": "Spain",        "tier": 1, "api_id": 140},
-    "/football/italy/serie-a/":              {"name": "Serie A",              "country": "Italy",        "tier": 1, "api_id": 135},
-    "/football/germany/bundesliga/":         {"name": "Bundesliga",           "country": "Germany",      "tier": 1, "api_id": 78},
-    "/football/france/ligue-1/":             {"name": "Ligue 1",              "country": "France",       "tier": 1, "api_id": 61},
-    "/football/europe/champions-league/":    {"name": "Champions League",     "country": "Europe",       "tier": 1, "api_id": 2},
-    "/football/europe/europa-league/":       {"name": "Europa League",        "country": "Europe",       "tier": 1, "api_id": 3},
-    "/football/europe/conference-league/":   {"name": "Conference League",    "country": "Europe",       "tier": 1, "api_id": 848},
-    "/football/netherlands/eredivisie/":     {"name": "Eredivisie",           "country": "Netherlands",  "tier": 1, "api_id": 88},
-    "/football/portugal/liga-portugal/":     {"name": "Liga Portugal",        "country": "Portugal",     "tier": 1, "api_id": 94},
-    "/football/turkey/super-lig/":           {"name": "Super Lig",            "country": "Turkey",       "tier": 1, "api_id": 203},
-    "/football/scotland/premiership/":       {"name": "Scottish Premiership", "country": "Scotland",     "tier": 1, "api_id": 179},
-    "/football/belgium/pro-league/":         {"name": "Pro League",           "country": "Belgium",      "tier": 1, "api_id": 144},
-    "/football/greece/super-league/":        {"name": "Super League",         "country": "Greece",       "tier": 1, "api_id": 197},
-    "/football/russia/premier-league/":      {"name": "Russian Premier",      "country": "Russia",       "tier": 1, "api_id": 235},
-    "/football/austria/bundesliga/":         {"name": "Austrian Bundesliga",  "country": "Austria",      "tier": 1, "api_id": 218},
-    "/football/switzerland/super-league/":   {"name": "Swiss Super League",   "country": "Switzerland",  "tier": 1, "api_id": 207},
-    "/football/denmark/superliga/":          {"name": "Superliga",            "country": "Denmark",      "tier": 1, "api_id": 119},
-    "/football/sweden/allsvenskan/":         {"name": "Allsvenskan",          "country": "Sweden",       "tier": 1, "api_id": 113},
-    "/football/norway/eliteserien/":         {"name": "Eliteserien",          "country": "Norway",       "tier": 1, "api_id": 108},
-    "/football/czech-republic/fortuna-liga/": {"name": "Fortuna Liga",        "country": "Czech Rep.",   "tier": 1, "api_id": 345},
-    "/football/poland/ekstraklasa/":         {"name": "Ekstraklasa",          "country": "Poland",       "tier": 1, "api_id": 106},
-    "/football/croatia/hnl/":               {"name": "HNL",                  "country": "Croatia",      "tier": 1, "api_id": 210},
-    "/football/serbia/super-liga/":          {"name": "Super Liga",           "country": "Serbia",       "tier": 1, "api_id": 292},
-
+    "/football/england/premier-league/":      {"name": "Premier League",       "country": "England",      "tier": 1, "api_id": 39},
+    "/football/spain/laliga/":                {"name": "La Liga",               "country": "Spain",        "tier": 1, "api_id": 140},
+    "/football/italy/serie-a/":               {"name": "Serie A",               "country": "Italy",        "tier": 1, "api_id": 135},
+    "/football/germany/bundesliga/":          {"name": "Bundesliga",            "country": "Germany",      "tier": 1, "api_id": 78},
+    "/football/france/ligue-1/":              {"name": "Ligue 1",               "country": "France",       "tier": 1, "api_id": 61},
+    "/football/europe/champions-league/":     {"name": "Champions League",      "country": "Europe",       "tier": 1, "api_id": 2},
+    "/football/europe/europa-league/":        {"name": "Europa League",         "country": "Europe",       "tier": 1, "api_id": 3},
+    "/football/europe/conference-league/":    {"name": "Conference League",     "country": "Europe",       "tier": 1, "api_id": 848},
+    "/football/netherlands/eredivisie/":      {"name": "Eredivisie",            "country": "Netherlands",  "tier": 1, "api_id": 88},
+    "/football/portugal/liga-portugal/":      {"name": "Liga Portugal",         "country": "Portugal",     "tier": 1, "api_id": 94},
+    "/football/turkey/super-lig/":            {"name": "Super Lig",             "country": "Turkey",       "tier": 1, "api_id": 203},
+    "/football/scotland/premiership/":        {"name": "Scottish Premiership",  "country": "Scotland",     "tier": 1, "api_id": 179},
+    "/football/belgium/pro-league/":          {"name": "Pro League",            "country": "Belgium",      "tier": 1, "api_id": 144},
+    "/football/greece/super-league/":         {"name": "Super League",          "country": "Greece",       "tier": 1, "api_id": 197},
+    "/football/russia/premier-league/":       {"name": "Russian Premier",       "country": "Russia",       "tier": 1, "api_id": 235},
+    "/football/austria/bundesliga/":          {"name": "Austrian Bundesliga",   "country": "Austria",      "tier": 1, "api_id": 218},
+    "/football/switzerland/super-league/":    {"name": "Swiss Super League",    "country": "Switzerland",  "tier": 1, "api_id": 207},
+    "/football/denmark/superliga/":           {"name": "Superliga",             "country": "Denmark",      "tier": 1, "api_id": 119},
+    "/football/sweden/allsvenskan/":          {"name": "Allsvenskan",           "country": "Sweden",       "tier": 1, "api_id": 113},
+    "/football/norway/eliteserien/":          {"name": "Eliteserien",           "country": "Norway",       "tier": 1, "api_id": 108},
+    "/football/czech-republic/fortuna-liga/": {"name": "Fortuna Liga",          "country": "Czech Rep.",   "tier": 1, "api_id": 345},
+    "/football/poland/ekstraklasa/":          {"name": "Ekstraklasa",           "country": "Poland",       "tier": 1, "api_id": 106},
+    "/football/croatia/hnl/":                 {"name": "HNL",                   "country": "Croatia",      "tier": 1, "api_id": 210},
+    "/football/serbia/super-liga/":           {"name": "Super Liga",            "country": "Serbia",       "tier": 1, "api_id": 292},
     # ── Tier 1: African ───────────────────────────────────────────────────
-    "/football/south-africa/psl/":           {"name": "PSL",                  "country": "South Africa", "tier": 1, "api_id": 288},
-    "/football/egypt/premier-league/":       {"name": "Egyptian Premier",     "country": "Egypt",        "tier": 1, "api_id": 233},
-    "/football/morocco/botola-pro/":         {"name": "Botola Pro",           "country": "Morocco",      "tier": 1, "api_id": 1322},
-    "/football/nigeria/npfl/":               {"name": "NPFL",                 "country": "Nigeria",      "tier": 1, "api_id": 1368},
-    "/football/africa/caf-champions-league/": {"name": "CAF Champions League","country": "Africa",       "tier": 1, "api_id": 1038},
-
+    "/football/south-africa/psl/":            {"name": "PSL",                   "country": "South Africa", "tier": 1, "api_id": 288},
+    "/football/egypt/premier-league/":        {"name": "Egyptian Premier",      "country": "Egypt",        "tier": 1, "api_id": 233},
+    "/football/morocco/botola-pro/":          {"name": "Botola Pro",            "country": "Morocco",      "tier": 1, "api_id": 1322},
+    "/football/nigeria/npfl/":                {"name": "NPFL",                  "country": "Nigeria",      "tier": 1, "api_id": 1368},
+    "/football/africa/caf-champions-league/": {"name": "CAF Champions League",  "country": "Africa",       "tier": 1, "api_id": 1038},
     # ── Tier 1: Americas ─────────────────────────────────────────────────
-    "/football/usa/mls/":                    {"name": "MLS",                  "country": "USA",          "tier": 1, "api_id": 253},
-    "/football/brazil/serie-a/":             {"name": "Brasileirão Serie A",  "country": "Brazil",       "tier": 1, "api_id": 325},
-    "/football/argentina/primera-division/": {"name": "Primera División",     "country": "Argentina",    "tier": 1, "api_id": 155},
-    "/football/mexico/liga-mx/":             {"name": "Liga MX",              "country": "Mexico",       "tier": 1, "api_id": 262},
-    "/football/colombia/primera-a/":         {"name": "Primera A",            "country": "Colombia",     "tier": 1, "api_id": 311},
-    "/football/chile/primera-division/":     {"name": "Primera División",     "country": "Chile",        "tier": 1, "api_id": 335},
-    "/football/uruguay/primera-division/":   {"name": "Primera División",     "country": "Uruguay",      "tier": 1, "api_id": 278},
-
+    "/football/usa/mls/":                     {"name": "MLS",                   "country": "USA",          "tier": 1, "api_id": 253},
+    "/football/brazil/serie-a/":              {"name": "Brasileirão Serie A",   "country": "Brazil",       "tier": 1, "api_id": 325},
+    "/football/argentina/primera-division/":  {"name": "Primera División",      "country": "Argentina",    "tier": 1, "api_id": 155},
+    "/football/mexico/liga-mx/":              {"name": "Liga MX",               "country": "Mexico",       "tier": 1, "api_id": 262},
+    "/football/colombia/primera-a/":          {"name": "Primera A",             "country": "Colombia",     "tier": 1, "api_id": 311},
+    "/football/chile/primera-division/":      {"name": "Primera División",      "country": "Chile",        "tier": 1, "api_id": 335},
+    "/football/uruguay/primera-division/":    {"name": "Primera División",      "country": "Uruguay",      "tier": 1, "api_id": 278},
     # ── Tier 1: Asia/Middle East ──────────────────────────────────────────
-    "/football/saudi-arabia/saudi-pro-league/": {"name": "Saudi Pro League",  "country": "Saudi Arabia", "tier": 1, "api_id": 307},
-    "/football/japan/j1-league/":            {"name": "J1 League",            "country": "Japan",        "tier": 1, "api_id": 98},
-    "/football/south-korea/k-league-1/":     {"name": "K League 1",           "country": "South Korea",  "tier": 1, "api_id": 292},
-    "/football/china/super-league/":         {"name": "Chinese Super League", "country": "China",        "tier": 1, "api_id": 169},
-    "/football/australia/a-league/":         {"name": "A-League",             "country": "Australia",    "tier": 1, "api_id": 188},
-
+    "/football/saudi-arabia/saudi-pro-league/": {"name": "Saudi Pro League",    "country": "Saudi Arabia", "tier": 1, "api_id": 307},
+    "/football/japan/j1-league/":             {"name": "J1 League",             "country": "Japan",        "tier": 1, "api_id": 98},
+    "/football/south-korea/k-league-1/":      {"name": "K League 1",            "country": "South Korea",  "tier": 1, "api_id": 292},
+    "/football/china/super-league/":          {"name": "Chinese Super League",  "country": "China",        "tier": 1, "api_id": 169},
+    "/football/australia/a-league/":          {"name": "A-League",              "country": "Australia",    "tier": 1, "api_id": 188},
     # ── Tier 2: Second divisions ──────────────────────────────────────────
-    "/football/england/championship/":       {"name": "Championship",         "country": "England",      "tier": 2, "api_id": 40},
-    "/football/spain/laliga2/":              {"name": "Segunda División",     "country": "Spain",        "tier": 2, "api_id": 141},
-    "/football/italy/serie-b/":              {"name": "Serie B",              "country": "Italy",        "tier": 2, "api_id": 136},
-    "/football/germany/2-bundesliga/":       {"name": "2. Bundesliga",        "country": "Germany",      "tier": 2, "api_id": 79},
-    "/football/france/ligue-2/":             {"name": "Ligue 2",              "country": "France",       "tier": 2, "api_id": 62},
-    "/football/netherlands/eerste-divisie/": {"name": "Eerste Divisie",       "country": "Netherlands",  "tier": 2, "api_id": 89},
-    "/football/portugal/liga-portugal-2/":   {"name": "Liga Portugal 2",      "country": "Portugal",     "tier": 2, "api_id": 95},
-    "/football/england/league-one/":         {"name": "League One",           "country": "England",      "tier": 2, "api_id": 41},
-    "/football/england/league-two/":         {"name": "League Two",           "country": "England",      "tier": 2, "api_id": 42},
-    "/football/scotland/championship/":      {"name": "Scottish Championship","country": "Scotland",     "tier": 2, "api_id": 180},
-    "/football/brazil/serie-b/":             {"name": "Brasileirão Serie B",  "country": "Brazil",       "tier": 2, "api_id": 326},
-    "/football/usa/usl-championship/":       {"name": "USL Championship",     "country": "USA",          "tier": 2, "api_id": 254},
+    "/football/england/championship/":        {"name": "Championship",          "country": "England",      "tier": 2, "api_id": 40},
+    "/football/spain/laliga2/":               {"name": "Segunda División",      "country": "Spain",        "tier": 2, "api_id": 141},
+    "/football/italy/serie-b/":               {"name": "Serie B",               "country": "Italy",        "tier": 2, "api_id": 136},
+    "/football/germany/2-bundesliga/":        {"name": "2. Bundesliga",         "country": "Germany",      "tier": 2, "api_id": 79},
+    "/football/france/ligue-2/":              {"name": "Ligue 2",               "country": "France",       "tier": 2, "api_id": 62},
+    "/football/netherlands/eerste-divisie/":  {"name": "Eerste Divisie",        "country": "Netherlands",  "tier": 2, "api_id": 89},
+    "/football/portugal/liga-portugal-2/":    {"name": "Liga Portugal 2",       "country": "Portugal",     "tier": 2, "api_id": 95},
+    "/football/england/league-one/":          {"name": "League One",            "country": "England",      "tier": 2, "api_id": 41},
+    "/football/england/league-two/":          {"name": "League Two",            "country": "England",      "tier": 2, "api_id": 42},
+    "/football/scotland/championship/":       {"name": "Scottish Championship", "country": "Scotland",     "tier": 2, "api_id": 180},
+    "/football/brazil/serie-b/":              {"name": "Brasileirão Serie B",   "country": "Brazil",       "tier": 2, "api_id": 326},
+    "/football/usa/usl-championship/":        {"name": "USL Championship",      "country": "USA",          "tier": 2, "api_id": 254},
 }
+
+# ── In-memory cache for DB league lookups (rebuilt each process start) ────────
+_DB_LEAGUE_CACHE: Dict[str, dict] = {}
+_DB_CACHE_LOADED = False
+
+
+def _load_league_cache():
+    """Load all active leagues with tournament_url from DB into memory cache."""
+    global _DB_LEAGUE_CACHE, _DB_CACHE_LOADED
+    if _DB_CACHE_LOADED:
+        return
+    try:
+        from fixtures.models import League
+        _DB_LEAGUE_CACHE = {}
+        for league in League.objects.filter(active=True).exclude(tournament_url=""):
+            _DB_LEAGUE_CACHE[league.tournament_url] = {
+                "name":    league.name,
+                "country": league.country,
+                "tier":    league.tier,
+                "api_id":  league.api_id,
+            }
+        _DB_CACHE_LOADED = True
+        logger.info("[LeagueCache] Loaded %d active leagues from DB", len(_DB_LEAGUE_CACHE))
+    except Exception as exc:
+        logger.warning("[LeagueCache] Failed to load from DB: %s", exc)
+
+
+def reload_league_cache():
+    """Force reload of league cache — call after adding leagues in admin."""
+    global _DB_CACHE_LOADED
+    _DB_CACHE_LOADED = False
+    _load_league_cache()
+
+
+def seed_leagues_from_known_urls():
+    """
+    One-time seeder — populates League.tournament_url from KNOWN_TOURNAMENT_URLS.
+    Safe to run multiple times — only updates leagues missing a tournament_url.
+    Call from management command or shell after migration.
+    """
+    from fixtures.models import League
+    updated = 0
+    for url, info in KNOWN_TOURNAMENT_URLS.items():
+        league = League.objects.filter(api_id=info["api_id"]).first()
+        if league and not league.tournament_url:
+            league.tournament_url = url
+            league.save(update_fields=["tournament_url"])
+            updated += 1
+            logger.info("[Seeder] %s → %s", league.name, url)
+        elif not league:
+            # Create if it doesn't exist yet
+            League.objects.create(
+                api_id=info["api_id"],
+                name=info["name"],
+                country=info["country"],
+                tier=info["tier"],
+                active=True,
+                tournament_url=url,
+            )
+            updated += 1
+            logger.info("[Seeder] Created %s → %s", info["name"], url)
+    logger.info("[Seeder] Done — %d leagues updated/created", updated)
+    return updated
 
 
 # ── Internal HTTP helper ──────────────────────────────────────────────────────
@@ -162,6 +229,7 @@ def _get(path: str, params: Optional[dict] = None):
     except ValueError:
         logger.error("Invalid JSON from [%s]", path)
         return None
+
 
 def _si_get(path: str, params: Optional[dict] = None):
     """GET a Soccer Football Info endpoint. Returns parsed JSON or None."""
@@ -213,10 +281,28 @@ def _resolve_status(status_d: dict) -> str:
 
 
 def _resolve_league_info(tournament_url: str) -> Optional[dict]:
+    """
+    Look up league info by tournament URL.
+    Queries DB cache first, falls back to hardcoded dict.
+    DB takes priority — allows admin overrides.
+    """
     if not tournament_url:
         return None
+
+    # Ensure cache is loaded
+    _load_league_cache()
+
+    # Try exact match in DB cache
+    if tournament_url in _DB_LEAGUE_CACHE:
+        return _DB_LEAGUE_CACHE[tournament_url]
+
+    # Try base URL (strip trailing path components)
     parts = tournament_url.strip("/").split("/")
     base  = "/" + "/".join(parts[:3]) + "/"
+    if base in _DB_LEAGUE_CACHE:
+        return _DB_LEAGUE_CACHE[base]
+
+    # Fall back to hardcoded dict (for leagues not yet in DB)
     return KNOWN_TOURNAMENT_URLS.get(tournament_url) or KNOWN_TOURNAMENT_URLS.get(base)
 
 
@@ -292,37 +378,13 @@ def _normalize_list_match(match: dict, tournament_block: dict, league_info: dict
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 2. MATCH ODDS  ← NEW
+# 2. MATCH ODDS
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_match_odds(match_id: str) -> dict:
     """
     Fetch bookmaker consensus odds for a match.
     Cost: 1 call per fixture.
-
-    Actual response shape (FlashScore v2):
-      List of bookmakers, each with:
-        odds: list of markets, each with:
-          bettingType:  "HOME_DRAW_AWAY" | "OVER_UNDER" | "BOTH_TEAMS_TO_SCORE" | ...
-          bettingScope: "FULL_TIME" | "FIRST_HALF" | "SECOND_HALF"
-          odds: list of price objects:
-            - 1X2:  {eventParticipantId, value, active}  (home/away have IDs, draw has null)
-            - O/U:  {value, active, handicap: {value: "2.5"}, selection: "OVER"|"UNDER"}
-            - BTTS: {value, active, bothTeamsToScore: true|false}
-
-    Returns averaged odds across all active bookmakers:
-    {
-        "1x2":     {"home": 2.10, "draw": 3.40, "away": 3.60},
-        "btts":    {"yes": 1.72, "no": 2.05},
-        "ou_goals": {
-            "0.5": {"over": 1.03, "under": 17.0},
-            "1.5": {"over": 1.17, "under": 5.0},
-            "2.5": {"over": 1.57, "under": 2.38},
-            "3.5": {"over": 2.38, "under": 1.57},
-            "4.5": {"over": 4.33, "under": 1.22},
-        },
-    }
-    Empty dict on failure — engine handles gracefully.
     """
     if not match_id:
         return {}
@@ -340,20 +402,16 @@ def fetch_match_odds(match_id: str) -> dict:
     for bookmaker in data:
         bk_odds = bookmaker.get("odds") or []
         for market in bk_odds:
-            btype  = market.get("bettingType",  "")
-            bscope = market.get("bettingScope", "")
+            btype     = market.get("bettingType",  "")
+            bscope    = market.get("bettingScope", "")
             odds_list = market.get("odds") or []
 
-            # Only full-time markets
             if bscope != "FULL_TIME":
                 continue
 
-            # ── 1X2 ──────────────────────────────────────────────────────
             if btype == "HOME_DRAW_AWAY":
-                home = draw = away = None
-                # Positions: eventParticipantId set = home or away, null = draw
-                # First non-null id = home, second = away
                 participant_odds = []
+                draw = None
                 for o in odds_list:
                     if not o.get("active"):
                         continue
@@ -367,10 +425,9 @@ def fetch_match_odds(match_id: str) -> dict:
                         draw = v
                 if len(participant_odds) >= 2:
                     home, away = participant_odds[0], participant_odds[1]
-                if home and draw and away:
-                    collected["1x2"].append({"home": home, "draw": draw, "away": away})
+                    if home and draw and away:
+                        collected["1x2"].append({"home": home, "draw": draw, "away": away})
 
-            # ── Over/Under (goals or corners) ─────────────────────────────
             elif btype == "OVER_UNDER":
                 for o in odds_list:
                     if not o.get("active"):
@@ -381,8 +438,6 @@ def fetch_match_odds(match_id: str) -> dict:
                     selection = (o.get("selection") or "").upper()
                     if v is None or not line_str or selection not in ("OVER", "UNDER"):
                         continue
-                    # Store under goals lines (0.5–6.5 typical for goals)
-                    # Higher lines like 7.5+ are corners — we separate later by range
                     try:
                         line_f = float(line_str)
                     except ValueError:
@@ -395,7 +450,6 @@ def fetch_match_odds(match_id: str) -> dict:
                     else:
                         collected[bucket][line_str]["under"].append(v)
 
-            # ── BTTS ───────────────────────────────────────────────────────
             elif btype == "BOTH_TEAMS_TO_SCORE":
                 yes_v = no_v = None
                 for o in odds_list:
@@ -411,13 +465,8 @@ def fetch_match_odds(match_id: str) -> dict:
                 if yes_v and no_v:
                     collected["btts"].append({"yes": yes_v, "no": no_v})
 
-            # ── Double Chance ──────────────────────────────────────────────
-            # Confirmed API mapping (from real response):
-            #   null participant  → "12" (Home or Away — no draw)
-            #   home participant  → "1x" (Home or Draw)
-            #   away participant  → "x2" (Away or Draw)
             elif btype == "DOUBLE_CHANCE":
-                null_v = home_v = away_v = None
+                null_v = None
                 participant_vals = []
                 for o in odds_list:
                     if not o.get("active"):
@@ -427,19 +476,18 @@ def fetch_match_odds(match_id: str) -> dict:
                     if v is None:
                         continue
                     if pid is None:
-                        null_v = v          # null participant = 12
+                        null_v = v
                     else:
                         participant_vals.append(v)
                 if len(participant_vals) >= 2:
                     home_v, away_v = participant_vals[0], participant_vals[1]
-                if null_v and home_v and away_v:
-                    collected["dc"].append({
-                        "12": null_v,   # Home or Away
-                        "1x": home_v,   # Home or Draw
-                        "x2": away_v,   # Away or Draw
-                    })
+                    if null_v and home_v and away_v:
+                        collected["dc"].append({
+                            "12": null_v,
+                            "1x": home_v,
+                            "x2": away_v,
+                        })
 
-    # ── Average across bookmakers ─────────────────────────────────────────
     result = {}
 
     if collected["1x2"]:
@@ -478,6 +526,7 @@ def fetch_match_odds(match_id: str) -> dict:
     logger.info("[Odds] match=%s markets=%s", match_id, list(result.keys()))
     return result
 
+
 def _safe_float(v) -> Optional[float]:
     try:
         f = float(v)
@@ -487,22 +536,11 @@ def _safe_float(v) -> Optional[float]:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 3. STANDINGS FORM  ← NEW
+# 3. STANDINGS FORM
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_match_standings_form(match_id: str) -> dict:
-    """
-    Fetch last-N form for both teams in this match.
-    Cost: 1 call.
-
-    Returns:
-    {
-        "home": {"team_id": "...", "form": "WWDLW", "played": 5, "won": 3, ...},
-        "away": {"team_id": "...", "form": "LWWWL", "played": 5, "won": 3, ...},
-    }
-
-    Expected response: list of team rows each with form string and stats.
-    """
+    """Fetch last-N form for both teams in this match. Cost: 1 call."""
     if not match_id:
         return {}
 
@@ -514,8 +552,6 @@ def fetch_match_standings_form(match_id: str) -> dict:
     if not isinstance(data, list):
         return {}
 
-    # Response is a list of all teams in the league with their form.
-    # We store all of them keyed by team_id for the caller to pick home/away.
     result = {}
     for row in data:
         team_id = row.get("team_id") or row.get("id") or ""
@@ -523,13 +559,10 @@ def fetch_match_standings_form(match_id: str) -> dict:
             continue
 
         form_str = ""
-        # Form may be in a "form" key as a string like "WWDLW"
-        # or as a list of objects
         raw_form = row.get("form") or row.get("recent_form") or ""
         if isinstance(raw_form, str):
             form_str = raw_form.upper()
         elif isinstance(raw_form, list):
-            # list of {"result": "W"} or {"type": "win"}
             chars = []
             for f in raw_form:
                 r = (f.get("result") or f.get("type") or "").upper()
@@ -556,30 +589,15 @@ def fetch_match_standings_form(match_id: str) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 4. LINEUPS  ← NEW
+# 4. LINEUPS
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Positions considered "key" — if one of these is missing, the model is degraded
 _KEY_POSITIONS = {"goalkeeper", "striker", "forward", "centre-forward", "attacker"}
 _IMPORTANT_POSITIONS = {"midfielder", "winger", "centre-back", "defender"}
 
 
 def fetch_match_lineups(match_id: str) -> dict:
-    """
-    Fetch confirmed starting lineups for a match.
-    Cost: 1 call. Only available ~60-90 mins before kickoff.
-
-    Returns:
-    {
-        "available": True,         # False if lineups not yet published
-        "home": {
-            "formation":     "4-3-3",
-            "starters":      [{"name": "...", "position": "...", "number": 9}, ...],
-            "missing_key":   1,    # count of key positions not in lineup (injury/suspension)
-        },
-        "away": { ... same ... },
-    }
-    """
+    """Fetch confirmed starting lineups. Cost: 1 call."""
     if not match_id:
         return {"available": False}
 
@@ -588,19 +606,17 @@ def fetch_match_lineups(match_id: str) -> dict:
     if not isinstance(data, dict) or not data:
         return {"available": False}
 
-    # If lineups aren't confirmed yet the response is empty or has no starters
     home_data = data.get("home_team") or data.get("home") or {}
     away_data = data.get("away_team") or data.get("away") or {}
 
     def parse_side(side_data: dict) -> dict:
-        formation = side_data.get("formation") or ""
+        formation    = side_data.get("formation") or ""
         starters_raw = (
             side_data.get("starters") or
             side_data.get("lineup") or
             side_data.get("starting_lineup") or
             []
         )
-
         starters = []
         for p in starters_raw:
             pos = (p.get("position") or p.get("pos") or "").lower().strip()
@@ -609,7 +625,6 @@ def fetch_match_lineups(match_id: str) -> dict:
                 "position": pos,
                 "number":   p.get("number") or p.get("shirt_number") or 0,
             })
-
         return {
             "formation": formation,
             "starters":  starters,
@@ -618,9 +633,7 @@ def fetch_match_lineups(match_id: str) -> dict:
 
     home_parsed = parse_side(home_data)
     away_parsed = parse_side(away_data)
-
-    # Need at least 11 starters each side to be considered available
-    available = home_parsed["count"] >= 11 and away_parsed["count"] >= 11
+    available   = home_parsed["count"] >= 11 and away_parsed["count"] >= 11
 
     return {
         "available": available,
@@ -630,7 +643,7 @@ def fetch_match_lineups(match_id: str) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 5. HEAD TO HEAD (unchanged)
+# 5. HEAD TO HEAD
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_head_to_head(match_id: str, *args, last: int = 8, **kwargs) -> List[dict]:
@@ -670,17 +683,11 @@ def fetch_head_to_head(match_id: str, *args, last: int = 8, **kwargs) -> List[di
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 6. MATCH STATS — grading (unchanged)
+# 6. MATCH STATS — grading
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_fixture_stats(match_id: str) -> dict:
-    """
-    Cost: 1 call per finished match.
-
-    API returns a dict with keys: "match", "1st-half", "2nd-half".
-    We read from the "match" block only (full-match totals).
-    Previous code checked isinstance(data, list) which always failed — fixed.
-    """
+    """Cost: 1 call per finished match."""
     if not match_id:
         return {}
 
@@ -688,28 +695,25 @@ def fetch_fixture_stats(match_id: str) -> dict:
     if not isinstance(data, dict):
         return {}
 
-    # Use full-match block only — avoids duplicates from half-time sub-blocks
     stats_list = data.get("match") or []
     if not stats_list:
         return {}
 
     result = {
-        "corner_kicks": 0,    # total (home + away) — kept for grade_results
-        "home_corners": None, # home team corners — None until we see real data
-        "away_corners": None, # away team corners — None until we see real data
+        "corner_kicks": 0,
+        "home_corners": None,
+        "away_corners": None,
         "yellow_cards": 0,
         "red_cards":    0,
         "xg_home":      0.0,
         "xg_away":      0.0,
-        "xgot_home":    0.0,  # xG on target — better signal than raw xG
+        "xgot_home":    0.0,
         "xgot_away":    0.0,
         "shots_home":   0,
         "shots_away":   0,
     }
 
-    seen_corner = False
-    seen_xg     = False
-    seen_xgot   = False
+    seen_corner = seen_xg = seen_xgot = False
 
     for stat in stats_list:
         name = (stat.get("name") or "").lower().strip()
@@ -739,13 +743,11 @@ def fetch_fixture_stats(match_id: str) -> dict:
         except (TypeError, ValueError):
             pass
 
-    # Normalise: if corners were never found, leave as None so callers know
-    # the data is absent rather than genuinely zero.
     return result
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 7. TEAM RESULTS — with recency weighting  (pages 1 & 2)
+# 7. TEAM RESULTS — with recency weighting
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_team_results(team_id: str, page: int = 1) -> List[dict]:
@@ -776,25 +778,7 @@ def fetch_team_results(team_id: str, page: int = 1) -> List[dict]:
 
 
 def compute_team_stats_from_results(team_id: str, results: List[dict]) -> dict:
-    """
-    Compute team stats with exponential recency weighting.
-
-    Recent matches count more — weight decays by 0.85 per step back.
-    Last match = weight 1.0, second-to-last = 0.85, then 0.72, 0.61, ...
-
-    Also computes BTTS rates and corner averages.
-
-    Corner data is optional — each result dict may carry:
-        "home_corners": int   (corners won by the home team that match)
-        "away_corners": int   (corners won by the away team that match)
-
-    These are populated by _update_team_stats when it fetches per-match
-    stats via fetch_fixture_stats.  If not present the corner fields are
-    omitted from the returned dict so existing values on the Team are
-    preserved rather than overwritten with defaults.
-    """
-    import math
-
+    """Compute team stats with exponential recency weighting."""
     home_games = [r for r in results if r.get("is_home")     and r.get("home_score") is not None]
     away_games = [r for r in results if not r.get("is_home") and r.get("away_score") is not None]
 
@@ -832,39 +816,36 @@ def compute_team_stats_from_results(team_id: str, results: List[dict]) -> dict:
             ga_w     += w * ga
             btts_w   += w if bt else 0
 
-            wins   += 1 if won else 0
-            draws  += 1 if drw else 0
-            gf_sum += gf
-            ga_sum += ga
+            wins      += 1 if won else 0
+            draws     += 1 if drw else 0
+            gf_sum    += gf
+            ga_sum    += ga
             btts_hits += 1 if bt else 0
 
-            # Corner data — only when present (fetched via fetch_fixture_stats)
             hc = g.get("home_corners")
             ac = g.get("away_corners")
             if hc is not None and ac is not None:
                 cf_raw = safe_int(hc) if is_home else safe_int(ac)
                 ca_raw = safe_int(ac) if is_home else safe_int(hc)
-                cf_w          += w * cf_raw
-                ca_w          += w * ca_raw
+                cf_w           += w * cf_raw
+                ca_w           += w * ca_raw
                 corner_total_w += w
-                cf_sum        += cf_raw
-                ca_sum        += ca_raw
-                corner_games  += 1
+                cf_sum         += cf_raw
+                ca_sum         += ca_raw
+                corner_games   += 1
 
         n = len(games)
-        result = {
-            "win":    round(wins / n, 3),
-            "draw":   round(draws / n, 3),
-            "gf":     round(gf_sum / n, 2),
-            "ga":     round(ga_sum / n, 2),
-            "rw_gf":  round(gf_w / total_w, 2),
-            "rw_ga":  round(ga_w / total_w, 2),
-            "btts":   round(btts_hits / n, 3),
-            # Corner averages — None when no corner data was available
-            "cf":     round(cf_w / corner_total_w, 2) if corner_total_w > 0 else None,
-            "ca":     round(ca_w / corner_total_w, 2) if corner_total_w > 0 else None,
+        return {
+            "win":   round(wins / n, 3),
+            "draw":  round(draws / n, 3),
+            "gf":    round(gf_sum / n, 2),
+            "ga":    round(ga_sum / n, 2),
+            "rw_gf": round(gf_w / total_w, 2),
+            "rw_ga": round(ga_w / total_w, 2),
+            "btts":  round(btts_hits / n, 3),
+            "cf":    round(cf_w / corner_total_w, 2) if corner_total_w > 0 else None,
+            "ca":    round(ca_w / corner_total_w, 2) if corner_total_w > 0 else None,
         }
-        return result
 
     h = _weighted_rates(home_games, True)
     a = _weighted_rates(away_games, False)
@@ -881,16 +862,12 @@ def compute_team_stats_from_results(team_id: str, results: List[dict]) -> dict:
         "away_avg_goals_against": a["ga"],
         "home_btts_rate":         h["btts"],
         "away_btts_rate":         a["btts"],
-        # Recency-weighted goal variants
         "rw_home_goals_for":      h["rw_gf"],
         "rw_home_goals_against":  h["rw_ga"],
         "rw_away_goals_for":      a["rw_gf"],
         "rw_away_goals_against":  a["rw_ga"],
     }
 
-    # Only include corner fields when we actually have corner data —
-    # avoids overwriting good stored values with None on runs where
-    # no match_id stats were fetched.
     if h["cf"] is not None:
         stats["home_avg_corners_for"]     = h["cf"]
         stats["home_avg_corners_against"] = h["ca"]
@@ -902,7 +879,7 @@ def compute_team_stats_from_results(team_id: str, results: List[dict]) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 8. STANDINGS (unchanged, returns league table)
+# 8. STANDINGS
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_match_standings(match_id: str) -> List[dict]:
@@ -914,7 +891,7 @@ def fetch_match_standings(match_id: str) -> List[dict]:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 9. OVER/UNDER STANDINGS (unchanged)
+# 9. OVER/UNDER STANDINGS
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_match_over_under(match_id: str, sub_type: str = "2.5") -> List[dict]:
@@ -928,7 +905,7 @@ def fetch_match_over_under(match_id: str, sub_type: str = "2.5") -> List[dict]:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 10. HT/FT STANDINGS (unchanged)
+# 10. HT/FT STANDINGS
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_match_ht_ft(match_id: str) -> List[dict]:
@@ -942,7 +919,7 @@ def fetch_match_ht_ft(match_id: str) -> List[dict]:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 11. TOURNAMENT STANDINGS (unchanged)
+# 11. TOURNAMENT STANDINGS
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_tournament_over_under(tournament_id: str, tournament_stage_id: str, sub_type: str = "2.5") -> List[dict]:
@@ -968,23 +945,12 @@ def fetch_tournament_ht_ft(tournament_id: str, tournament_stage_id: str) -> List
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 12. GRADE RESULTS helpers (unchanged)
+# 12. GRADE RESULTS helpers
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_fixtures_finished(date_str: str) -> List[dict]:
-    """
-    Targeted score update for the night pipeline.
-
-    Queries the DB for fixtures on `date_str` that are NOT yet marked
-    'finished', then fetches each one's current details from the API to
-    pick up final scores and status.  Only fixtures that have a FlashScore
-    match_id stored in the venue field (prefixed 'fs:') can be updated.
-
-    Cost: 1 API call per unfinished fixture (typically 5-20 at night).
-    Returns a list of normalised dicts — same shape as fetch_fixtures_by_date
-    — so the caller can update the DB rows directly.
-    """
-    from fixtures.models import Fixture  # local import to avoid circular at module level
+    """Targeted score update for the night pipeline. Cost: 1 call per unfinished fixture."""
+    from fixtures.models import Fixture
 
     unfinished = Fixture.objects.filter(
         kickoff__date=date_str,
@@ -1003,20 +969,16 @@ def fetch_fixtures_finished(date_str: str) -> List[dict]:
     for fixture in unfinished:
         venue = fixture.venue or ""
         if not venue.startswith("fs:"):
-            logger.debug("Skipping fixture %s — no fs: match_id stored", fixture)
             continue
 
         match_id = venue[3:]
         try:
             details = get_match_details(match_id)
             if not details:
-                logger.debug("No details returned for match_id=%s", match_id)
                 continue
             norm = normalize_match(details)
             if not norm.get("match_id"):
                 continue
-            # Inject the league fields from the DB row so the caller doesn't
-            # need to re-resolve tournament URLs for already-known fixtures.
             norm.setdefault("league_api_id",  fixture.league.api_id if fixture.league else None)
             norm.setdefault("league_name",    fixture.league.name    if fixture.league else "")
             norm.setdefault("country_name",   fixture.league.country if fixture.league else "")
@@ -1026,12 +988,13 @@ def fetch_fixtures_finished(date_str: str) -> List[dict]:
             norm.setdefault("home_team_name", fixture.home_team.name if fixture.home_team else "")
             norm.setdefault("away_team_name", fixture.away_team.name if fixture.away_team else "")
             results.append(norm)
-            time.sleep(0.4)   # gentle rate-limit between calls
+            time.sleep(0.4)
         except Exception as exc:
             logger.warning("fetch_fixtures_finished: error for match_id=%s: %s", match_id, exc)
 
     logger.info("[fetch_fixtures_finished] Retrieved %d score updates", len(results))
     return results
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 13. CORNER ODDS FALLBACK — Soccer Football Info API
@@ -1041,17 +1004,7 @@ def fetch_corner_odds_fallback(home_team: str, away_team: str, match_date: str) 
     """
     Fetch corner odds from Soccer Football Info API when FlashScore only
     returns a 6.5 line or nothing at all.
-
-    Cost: 1 call (day list) + 0 if no match found.
-    match_date: "YYYYMMDD" string.
-
-    Returns ou_corners dict in same format as fetch_match_odds:
-    {
-        "9.5":  {"over": 1.875, "under": 1.925},
-        "10.5": {"over": 1.950, "under": 1.850},
-        ...
-    }
-    Empty dict on failure or no match found.
+    Cost: 1 call. match_date: "YYYYMMDD" string.
     """
     if not home_team or not away_team or not match_date:
         return {}
@@ -1069,14 +1022,11 @@ def fetch_corner_odds_fallback(home_team: str, away_team: str, match_date: str) 
     if not isinstance(matches, list):
         return {}
 
-    # Fuzzy match team names — normalise to lowercase, strip punctuation
     def _norm(name: str) -> str:
         import re
         return re.sub(r"[^a-z0-9]", "", name.lower())
 
     def _partial_match(a: str, b: str) -> bool:
-        # Check if either is a substring of the other
-        # or if they share a significant common prefix (5+ chars)
         if a in b or b in a:
             return True
         min_len = min(len(a), len(b))
@@ -1086,7 +1036,6 @@ def fetch_corner_odds_fallback(home_team: str, away_team: str, match_date: str) 
 
     home_norm = _norm(home_team)
     away_norm = _norm(away_team)
-
     best_match = None
     best_score = 0
 
@@ -1094,23 +1043,16 @@ def fetch_corner_odds_fallback(home_team: str, away_team: str, match_date: str) 
         team_a = _norm(m.get("teamA", {}).get("name", ""))
         team_b = _norm(m.get("teamB", {}).get("name", ""))
 
-        # Score based on substring containment — handles "Man City" vs "Manchester City"
         score = 0
-        if _partial_match(home_norm, team_a):
-            score += 2
-        if _partial_match(away_norm, team_b):
-            score += 2
-        # Also try reversed
-        if _partial_match(home_norm, team_b):
-            score += 1
-        if _partial_match(away_norm, team_a):
-            score += 1
+        if _partial_match(home_norm, team_a): score += 2
+        if _partial_match(away_norm, team_b): score += 2
+        if _partial_match(home_norm, team_b): score += 1
+        if _partial_match(away_norm, team_a): score += 1
 
         if score > best_score:
             best_score = score
             best_match = m
 
-    # Require at least one strong match on each side
     if best_score < 3 or best_match is None:
         logger.debug(
             "[SoccerInfo] No corner odds match found for %s vs %s on %s (best_score=%d)",
@@ -1118,13 +1060,10 @@ def fetch_corner_odds_fallback(home_team: str, away_team: str, match_date: str) 
         )
         return {}
 
-    # Extract asian_corner odds from the matched fixture
-    odds = best_match.get("odds") or {}
-    live_odds    = odds.get("live") or {}
+    odds          = best_match.get("odds") or {}
+    live_odds     = odds.get("live") or {}
     starting_odds = odds.get("starting") or {}
-
-    # Prefer live over starting
-    corner_data = live_odds.get("asian_corner") or starting_odds.get("asian_corner")
+    corner_data   = live_odds.get("asian_corner") or starting_odds.get("asian_corner")
 
     if not corner_data:
         logger.debug(
@@ -1134,8 +1073,6 @@ def fetch_corner_odds_fallback(home_team: str, away_team: str, match_date: str) 
         )
         return {}
 
-    # API returns single line: {"o": "1.900", "u": "1.900", "v": "9.5"}
-    # Convert to our multi-line dict format
     line_str = str(corner_data.get("v") or "").strip()
     over_v   = _safe_float(corner_data.get("o"))
     under_v  = _safe_float(corner_data.get("u"))
@@ -1150,6 +1087,7 @@ def fetch_corner_odds_fallback(home_team: str, away_team: str, match_date: str) 
 
     return {line_str: {"over": over_v, "under": under_v}}
 
+
 # ══════════════════════════════════════════════════════════════════════════════
 # BACKWARD COMPAT STUBS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1158,11 +1096,13 @@ def fetch_team_statistics(team_id, league_id, season) -> dict:
     logger.debug("fetch_team_statistics deprecated — use fetch_team_results")
     return {}
 
+
 def get_match_details(match_id: str) -> Optional[dict]:
     if not match_id:
         return None
     data = _get("/api/flashscore/v2/matches/details", {"match_id": match_id})
     return data if isinstance(data, dict) and data.get("match_id") else None
+
 
 def normalize_match(details: dict) -> dict:
     if not isinstance(details, dict):
@@ -1178,7 +1118,7 @@ def normalize_match(details: dict) -> dict:
     if ts:
         try: kickoff = datetime.fromtimestamp(int(ts), tz=timezone.utc)
         except: pass
-    t_url = tournament.get("tournament_url", "")
+    t_url       = tournament.get("tournament_url", "")
     league_info = _resolve_league_info(t_url)
     return {
         "match_id":        details.get("match_id"),

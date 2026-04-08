@@ -23,7 +23,6 @@ from predictions.engine import (
     predict_double_chance,
     predict_goals,
     predict_btts,
-    predict_corners,
 )
 from predictions.publisher import publish_predictions
 from predictions.reasoner import generate_reasoning
@@ -144,33 +143,22 @@ def _build_candidate(fixture):
         except Exception as exc:
             logger.warning("Odds fetch failed for %s: %s", fixture, exc)
 
-    # ── Corner odds fallback — Soccer Football Info API ───────────────────────
-    # If FlashScore returned no corner lines or only 6.5, try the fallback
-    ou_corners = odds.get("ou_corners", {})
-    needs_fallback = (
-        not ou_corners
-        or (len(ou_corners) == 1 and "6.5" in ou_corners)
-    )
-    if needs_fallback and fixture.home_team and fixture.away_team:
-        try:
-            match_date = fixture.kickoff.strftime("%Y%m%d") if fixture.kickoff else ""
-            if match_date:
-                fallback_corners = api_client.fetch_corner_odds_fallback(
-                    home_team=fixture.home_team.name,
-                    away_team=fixture.away_team.name,
-                    match_date=match_date,
-                )
-                if fallback_corners:
-                    odds["ou_corners"] = fallback_corners
-                    logger.info(
-                        "[CornerFallback] Used SoccerInfo corners for %s: %s",
-                        fixture, fallback_corners,
-                    )
-                else:
-                    logger.debug("[CornerFallback] No corners found for %s", fixture)
-            time.sleep(0.5)
-        except Exception as exc:
-            logger.warning("Corner fallback failed for %s: %s", fixture, exc)
+    # ── Clean ou_goals — keep only standard .5 lines, drop Asian quarter lines ──
+    # FlashScore returns Asian handicap lines (0.75, 1.25, 1.75, 2.25 etc.)
+    # mixed into ou_goals. These are split-stake markets — Poisson probabilities
+    # don't apply to them. Keep only clean x.5 lines: 1.5, 2.5, 3.5, 4.5.
+    # Also drop 0.5 (always ~1.05, no value) and 5.5 (too rare).
+    VALID_GOAL_LINES = {"1.5", "2.5", "3.5", "4.5"}
+    if "ou_goals" in odds:
+        odds["ou_goals"] = {
+            k: v for k, v in odds["ou_goals"].items()
+            if k in VALID_GOAL_LINES
+        }
+
+    # ── Corners: disabled — no usable odds from FlashScore or SoccerInfo ───────
+    # FlashScore only returns a junk 6.5 line (over=31.0, under=1.0 — not real
+    # prices). SoccerInfo fallback returns empty for all tested fixtures.
+    # Corners will be re-enabled when a working odds source is found.
 
     # ── Score all markets ──────────────────────────────────────────────────────
     scored_raw = {
@@ -178,7 +166,6 @@ def _build_candidate(fixture):
         "dc":       predict_double_chance(home, away, h2h_results, league, odds),
         "ou_goals": predict_goals(home, away, h2h_results, league, odds),
         "btts":     predict_btts(home, away, h2h_results, league, odds),
-        "corners":  predict_corners(home, away, referee, h2h_results, league, odds),
     }
 
     valid_scored = {}

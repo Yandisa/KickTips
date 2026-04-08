@@ -45,16 +45,43 @@ MIN_CORNER_DATA_PTS   = 7     # Both teams need this many games before corners f
 MIN_DC_FAIR_DECIMAL   = 1.18  # DC covers 2 outcomes — fair price below 1.20 means
                                # model says >83% prob, bookmakers also well-priced there
 MIN_GOALS_CONFIDENCE = 63.0  # Goals market — slightly more permissive than global 65%
+MIN_PUBLISHABLE_DECIMAL = 1.40  # Any bookie price below this is not bettable —
+                                 # Over 0.5, Under 4.5 etc. fail this gate automatically.
 # ── No-odds penalty ───────────────────────────────────────────────────────────
 NO_ODDS_PENALTY   = 15.0    # pp knocked off confidence when no bookmaker odds
 
 # ── Dixon-Coles correction ────────────────────────────────────────────────────
-RHO      = 0.10
+# RHO is negative: 0-0 and 1-1 scorelines occur MORE than independent Poisson
+# predicts (Dixon & Coles 1997 found rho ≈ -0.13). Positive RHO runs the
+# correction backwards and systematically suppresses draws and clean sheets.
+RHO      = -0.10
 MAX_GOALS = 8
 
 # ── Lines ─────────────────────────────────────────────────────────────────────
 GOAL_LINES   = [1.5, 2.5, 3.5]
 CORNER_LINES = [7.5, 8.5, 9.5, 10.5, 11.5, 12.5]
+
+
+# ── Poisson CDF inversion ─────────────────────────────────────────────────────
+
+def _implied_mu_from_ou25_rate(rate: float) -> float:
+    """
+    Invert the Poisson CDF: find mu such that P(goals > 2.5) = rate.
+    Replaces the old `combined_rate * 5.0` magic number which was wrong
+    at the tails. Binary search converges in 50 steps to < 0.001 error.
+
+    P(X > 2.5) = 1 - P(X <= 2) = 1 - e^{-mu}(1 + mu + mu^2/2)
+    """
+    rate = max(0.05, min(rate, 0.95))
+    lo, hi = 0.1, 9.0
+    for _ in range(50):
+        mid = (lo + hi) / 2
+        p_under = math.exp(-mid) * (1 + mid + mid ** 2 / 2)
+        if (1 - p_under) < rate:
+            lo = mid
+        else:
+            hi = mid
+    return round((lo + hi) / 2, 4)
 
 
 # ── Poisson engine ────────────────────────────────────────────────────────────
@@ -130,7 +157,10 @@ def _derive_lambdas(home, away, league):
     a_ou25 = g(away, "away_ou25_over_rate", 0)
     if h_ou25 > 0 and a_ou25 > 0:
         combined_rate    = (h_ou25 + a_ou25) / 2
-        implied_mu_total = max(1.5, min(combined_rate * 5.0, 5.5))
+        # Proper Poisson inversion — replaces the old * 5.0 magic number
+        # which was wrong at the tails (e.g. 80% rate → 4.0 goals, correct
+        # answer is ~3.3). Binary search on the CDF is exact.
+        implied_mu_total = _implied_mu_from_ou25_rate(combined_rate)
         current_total    = mu_h + mu_a
         if current_total > 0:
             scale = implied_mu_total / current_total
@@ -196,6 +226,13 @@ def _value_check(model_prob: float, bookie_decimal: Optional[float]) -> dict:
                 "fair_decimal": fair_decimal, "bookie_implied": None}
 
     if bookie_decimal <= MIN_BOOKIE_DECIMAL:
+        return {"has_value": False, "edge": None, "bookie_decimal": bookie_decimal,
+                "fair_decimal": fair_decimal, "bookie_implied": round(1/bookie_decimal, 4)}
+
+    # Economic viability gate — below 1.40 the market is pricing near-certainty.
+    # No edge calculation can save a tip at 1.08: even at 95% model probability
+    # the EV is negative after bookmaker margin. Kill it here before edge check.
+    if bookie_decimal < MIN_PUBLISHABLE_DECIMAL:
         return {"has_value": False, "edge": None, "bookie_decimal": bookie_decimal,
                 "fair_decimal": fair_decimal, "bookie_implied": round(1/bookie_decimal, 4)}
 

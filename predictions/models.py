@@ -47,6 +47,15 @@ class Prediction(models.Model):
     result     = models.CharField(max_length=10, choices=RESULT_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # ── Closing Line Value tracking ───────────────────────────────────────────
+    # closing_decimal: the bookmaker price captured ~1hr before kickoff.
+    # clv: our published price vs closing price.
+    #   clv > 0 means we got better odds than closing → positive edge signal.
+    #   clv < 0 means market moved away from us → negative edge signal.
+    # Formula: clv = (bookie_decimal / closing_decimal) - 1
+    closing_decimal = models.FloatField(null=True, blank=True)
+    clv             = models.FloatField(null=True, blank=True)
+
     def __str__(self):
         status = "✅" if self.published else "⏭"
         return f"{status} {self.fixture} | {self.get_market_display()} | {self.tip} ({self.confidence:.0f}%)"

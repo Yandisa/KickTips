@@ -27,11 +27,55 @@ from predictions.engine import (
 from predictions.publisher import publish_predictions
 from predictions.reasoner import generate_reasoning
 
+from django.db.models import Avg, Count
+
 logger = logging.getLogger(__name__)
 
-# Only publish tips where the fixture has at least this confidence
-PRIMARY_CONFIDENCE  = 65   # Strong tips — publish prominently
-FALLBACK_CONFIDENCE = 65   # Minimum — nothing below 65% ever published
+# Cache league computed stats for the duration of this command run
+# so we don't recompute for every fixture from the same league
+_LEAGUE_STATS_CACHE: dict = {}
+
+
+def _compute_league_stats(league) -> dict:
+    """
+    Compute actual average goals and team count from finished fixtures
+    stored in the DB for this league. Falls back to League model defaults
+    if insufficient data (< 10 finished matches).
+    """
+    lid = league.id
+    if lid in _LEAGUE_STATS_CACHE:
+        return _LEAGUE_STATS_CACHE[lid]
+
+    from fixtures.models import Fixture as Fix
+    finished = Fix.objects.filter(
+        league=league,
+        status="finished",
+        home_score__isnull=False,
+        away_score__isnull=False,
+    )
+    count = finished.count()
+
+    if count >= 10:
+        agg = finished.aggregate(
+            avg_h=Avg("home_score"),
+            avg_a=Avg("away_score"),
+        )
+        avg_goals  = round((agg["avg_h"] or 0) + (agg["avg_a"] or 0), 3)
+        team_count = (
+            Fix.objects.filter(league=league, status="finished")
+            .values("home_team_id")
+            .distinct()
+            .count()
+        )
+    else:
+        avg_goals  = league.avg_goals or 2.65
+        team_count = None
+
+    stats = {"avg_goals": avg_goals, "team_count": team_count, "n_matches": count}
+    _LEAGUE_STATS_CACHE[lid] = stats
+    logger.debug("[LeagueStats] %s: %.2f goals/game from %d matches, %s teams",
+                 league.name, avg_goals, count, team_count)
+    return stats
 
 
 class Command(BaseCommand):
@@ -129,6 +173,13 @@ def _build_candidate(fixture):
     away    = fixture.away_team
     league  = fixture.league
     referee = fixture.referee
+
+    # Inject dynamically computed league stats so engine uses real averages
+    # rather than the static League.avg_goals field
+    league_stats = _compute_league_stats(league)
+    league.computed_avg_goals = league_stats["avg_goals"]
+    if league_stats["team_count"]:
+        league.team_count = league_stats["team_count"]
 
     h2h_results = _load_h2h(fixture)
 

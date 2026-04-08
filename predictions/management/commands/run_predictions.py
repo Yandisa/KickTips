@@ -133,7 +133,7 @@ def _build_candidate(fixture):
 
     h2h_results = _load_h2h(fixture)
 
-    # ── Fetch live bookmaker odds ──────────────────────────────────────────
+    # ── Fetch live bookmaker odds ──────────────────────────────────────────────
     odds = {}
     venue = fixture.venue or ""
     if venue.startswith("fs:"):
@@ -144,7 +144,7 @@ def _build_candidate(fixture):
         except Exception as exc:
             logger.warning("Odds fetch failed for %s: %s", fixture, exc)
 
-    # ── Corner odds fallback — Soccer Football Info API ───────────────────
+    # ── Corner odds fallback — Soccer Football Info API ───────────────────────
     # If FlashScore returned no corner lines or only 6.5, try the fallback
     ou_corners = odds.get("ou_corners", {})
     needs_fallback = (
@@ -172,7 +172,7 @@ def _build_candidate(fixture):
         except Exception as exc:
             logger.warning("Corner fallback failed for %s: %s", fixture, exc)
 
-    # ── Score all markets ─────────────────────────────────────────────────
+    # ── Score all markets ──────────────────────────────────────────────────────
     scored_raw = {
         "1x2":      predict_1x2(home, away, h2h_results, league, odds),
         "dc":       predict_double_chance(home, away, h2h_results, league, odds),

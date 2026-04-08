@@ -37,13 +37,13 @@ def _ref_has_enough_data(referee):
 
 
 def _h2h_summary(h2h_results):
-    """Return a one-line H2H goals summary, or None if no data."""
+    """Return a one-line H2H goals summary, or None if fewer than 3 results."""
     goals = [
         (r.get("home_score") or 0) + (r.get("away_score") or 0)
         for r in h2h_results
         if r.get("home_score") is not None and r.get("away_score") is not None
     ]
-    if not goals:
+    if len(goals) < 3:
         return None
     avg = sum(goals) / len(goals)
     return f"Their last {len(goals)} meetings averaged {avg:.1f} goals."
@@ -113,7 +113,7 @@ def _corners_reasoning(tip, expected, home, away, referee, h2h_results):
             )
 
     h2h_c = [r["total_corners"] for r in h2h_results if r.get("total_corners") is not None]
-    if h2h_c:
+    if len(h2h_c) >= 3:
         avg_c = sum(h2h_c) / len(h2h_c)
         lines.append(
             f"The last {len(h2h_c)} meetings between these sides averaged {avg_c:.0f} corners."
@@ -183,7 +183,7 @@ def _1x2_reasoning(tip, expected, home, away, h2h_results):
     else:
         lines.append("Neither side holds a clear edge — a draw is the most likely outcome.")
 
-    if h2h_results:
+    if len(h2h_results) >= 3:
         h2h_hw = sum(1 for r in h2h_results if r.get("winner") == "home")
         h2h_aw = sum(1 for r in h2h_results if r.get("winner") == "away")
         h2h_d  = sum(1 for r in h2h_results if r.get("winner") == "draw")
@@ -199,6 +199,7 @@ def _1x2_reasoning(tip, expected, home, away, h2h_results):
 # ── Double Chance ─────────────────────────────────────────────────────────────
 
 def _dc_reasoning(tip, expected, home, away, h2h_results=None):
+    h2h_results = h2h_results or []
     home_wr = _g(home, "home_win_rate")
     away_wr = _g(away, "away_win_rate")
 
@@ -223,7 +224,7 @@ def _dc_reasoning(tip, expected, home, away, h2h_results=None):
             f"so this covers either winner."
         )
 
-    if h2h_results:
+    if len(h2h_results) >= 3:
         non_draws = sum(1 for r in h2h_results if r.get("winner") in {"home", "away"})
         if non_draws >= 2:
             lines.append(
@@ -270,7 +271,7 @@ def _btts_reasoning(tip, expected, home, away, h2h_results):
                 f"One side should manage a clean sheet here.",
             ]
 
-    if h2h_results:
+    if len(h2h_results) >= 3:
         btts_hits = sum(
             1 for r in h2h_results
             if r.get("home_score") is not None and r.get("away_score") is not None

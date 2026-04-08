@@ -31,6 +31,10 @@ from django.db.models import Avg, Count
 
 logger = logging.getLogger(__name__)
 
+# Only publish tips where the fixture has at least this confidence
+PRIMARY_CONFIDENCE  = 65   # Strong tips — publish prominently
+FALLBACK_CONFIDENCE = 65   # Minimum — nothing below 65% ever published
+
 # Cache league computed stats for the duration of this command run
 # so we don't recompute for every fixture from the same league
 _LEAGUE_STATS_CACHE: dict = {}

@@ -390,14 +390,13 @@ def predict_goals(home, away, h2h_results, league, odds=None):
             if gap < 0.15 or gap > 1.4:
                 continue
 
-            over_prob  = probs["over"].get(line, 0)
-            under_prob = 1 - over_prob
-
             if over_prob >= under_prob:
                 model_prob, side, odds_key = over_prob,  "Over",  "over"
             else:
                 model_prob, side, odds_key = under_prob, "Under", "under"
-
+            # Block unreliable tip types globally
+            if side == "Under" and line == 1.5:
+                continue
             bookie_dec = None
             if odds and "ou_goals" in odds:
                 bookie_dec = odds["ou_goals"].get(str(line), {}).get(odds_key)

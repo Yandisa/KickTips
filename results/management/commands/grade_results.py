@@ -117,6 +117,10 @@ class Command(BaseCommand):
             for pred in predictions:
                 result = self._grade(pred, fixture, corners, cards)
                 pred.result = result
+                # Compute CLV at grading time if closing line was captured
+                # by refresh_odds but CLV wasn't stored yet
+                if pred.closing_decimal and pred.bookie_decimal and pred.clv is None:
+                    pred.clv = round((pred.bookie_decimal / pred.closing_decimal) - 1, 4)
                 pred.save()
                 graded += 1
                 if result == "won":

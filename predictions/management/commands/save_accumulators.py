@@ -142,7 +142,7 @@ class Command(BaseCommand):
         tiers = [
             ("faka_yonke",  _ranked_unique(all_preds, FAKA_MIN_CONF),  4, 5),
             ("shaya_zonke", _ranked_unique(all_preds, SHAYA_MIN_CONF), 5, 8),
-            ("istimela",    _ranked_unique(all_preds, ISTIMELA_MIN_CONF), 8, 12),
+            ("istimela",    _ranked_unique(all_preds, ISTIMELA_MIN_CONF), 6, 12),
         ]
 
         for tier_key, pool, size_min, size_max in tiers:

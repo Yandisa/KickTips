@@ -25,7 +25,9 @@ from predictions.models import Prediction, Accumulator, AccumulatorLeg
 logger = logging.getLogger(__name__)
 
 # ── Mirror the exact constants from views.py ──────────────────────────────────
-FAKA_MIN_CONF     = 70.0
+# FAKA_MIN_CONF lowered from 70.0 to 66.5 — with MAX_DISPLAY_CONFIDENCE=67.0
+# in the engine, nothing reaches 70% so Faka Yonke would never fire.
+FAKA_MIN_CONF     = 66.5
 SHAYA_MIN_CONF    = 65.0
 ISTIMELA_MIN_CONF = 60.0
 

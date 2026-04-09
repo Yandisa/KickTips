@@ -31,8 +31,8 @@ FAKA_MIN_CONF     = 66.5
 SHAYA_MIN_CONF    = 65.0
 ISTIMELA_MIN_CONF = 60.0
 
-MAX_SAME_MARKET_PER_ACCA = 2
-MAX_SAME_LEAGUE_PER_ACCA = 3
+MAX_SAME_MARKET_PER_ACCA = 3   # raised from 2 — DC-heavy days need more slots
+MAX_SAME_LEAGUE_PER_ACCA = 4   # raised from 3 — fewer fixtures per day need more flexibility
 
 MARKET_PREFERENCE = {'1x2': 1, 'btts': 2, 'ou_goals': 3, 'dc': 4, 'corners': 5}
 

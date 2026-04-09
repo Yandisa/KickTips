@@ -316,7 +316,18 @@ class Command(BaseCommand):
             time.sleep(TEAM_RESULTS_DELAY)
             p2 = api_client.fetch_team_results(team_id, page=2)
             time.sleep(TEAM_RESULTS_DELAY)
-            results = p1 + p2
+            # Sort by timestamp descending — most recent first — so that
+            # the exponential decay in compute_team_stats_from_results
+            # correctly weights recent matches more than old ones.
+            # Without this, position 0 gets weight 1.0 regardless of date.
+            combined = p1 + p2
+            results = sorted(
+                [r for r in combined if r.get("timestamp")],
+                key=lambda r: int(r["timestamp"]),
+                reverse=True,
+            )
+            # Keep up to 20 most recent — beyond that the decay is negligible
+            results = results[:20]
 
             if results and len(results) >= 5:
                 corner_stat_matches = 6

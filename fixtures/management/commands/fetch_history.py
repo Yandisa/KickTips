@@ -389,7 +389,7 @@ class Command(BaseCommand):
                 status="finished",
                 home_score__isnull=False,
                 away_score__isnull=False,
-            ).order_by("-kickoff")[:40]
+            ).order_by("-kickoff")[:20]  # 20 is enough — beyond that decay weight is negligible
         )
         results = []
         for f in fixtures:

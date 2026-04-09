@@ -132,7 +132,7 @@ class Command(BaseCommand):
             if tips_with_value == 0:
                 # No valid tips — but still persist skipped markets so
                 # match_detail shows the skip reasons for transparency.
-                publish_predictions(fixture, candidate["scored"])
+                publish_predictions(fixture, candidate["all_scored"])
                 continue   # no valid tips at all — skip
 
             if conf >= PRIMARY_CONFIDENCE:
@@ -152,7 +152,7 @@ class Command(BaseCommand):
 
         for item in final:
             fixture = item["fixture"]
-            n = publish_predictions(fixture, item["scored"])
+            n = publish_predictions(fixture, item["all_scored"])
             total_published += n
             if n:
                 markets = ", ".join(item["scored"].keys())
@@ -265,6 +265,10 @@ def _build_candidate(fixture):
         "league":      league.name,
         "confidence":  highest_conf,
         "scored":      valid_scored,
+        # All markets including skipped — passed to publisher so it can
+        # unpublish any previously-published tip that is now skipped
+        # (e.g. 1X2 tip that was published before max-odds cap was added)
+        "all_scored":  scored_raw,
         "value_count": value_count,
     }
 

@@ -256,7 +256,19 @@ def _build_candidate(fixture):
         value_count += 1  # count every valid tip; edge=None means no odds available
 
     if not valid_scored:
-        return None
+        # All markets skipped — still return a candidate so the handle()
+        # loop calls publish_predictions to unpublish any stale records
+        # sitting in the DB from a previous run with different thresholds.
+        return {
+            "fixture":     fixture,
+            "home":        home.name,
+            "away":        away.name,
+            "league":      league.name,
+            "confidence":  0.0,
+            "scored":      {},
+            "all_scored":  scored_raw,
+            "value_count": 0,
+        }
 
     return {
         "fixture":     fixture,

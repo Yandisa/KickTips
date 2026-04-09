@@ -207,15 +207,42 @@ class Command(BaseCommand):
             team.save(update_fields=["enriched_at"])
 
     def _apply_form(self, team: "Team", fs_team_id: str, form_data: dict):
+        from fixtures.models import Fixture as Fix
         row = form_data.get(str(fs_team_id))
         if not row:
             return
         form_str = row.get("form", "")
         if not form_str:
             return
+
+        # Overall form from API
         team.form_overall = form_str[:10]
-        team.form_home = form_str[:6]
-        team.form_away = form_str[:6]
+
+        # Build real home/away form from DB fixtures — sorted most recent first
+        def _result_char(f, is_home):
+            if f.home_score is None:
+                return None
+            if is_home:
+                if f.home_score > f.away_score: return 'W'
+                if f.home_score < f.away_score: return 'L'
+                return 'D'
+            else:
+                if f.away_score > f.home_score: return 'W'
+                if f.away_score < f.home_score: return 'L'
+                return 'D'
+
+        home_fixtures = Fix.objects.filter(
+            home_team=team, status='finished', home_score__isnull=False
+        ).order_by('-kickoff')[:5]
+        away_fixtures = Fix.objects.filter(
+            away_team=team, status='finished', away_score__isnull=False
+        ).order_by('-kickoff')[:5]
+
+        home_form = ''.join(filter(None, [_result_char(f, True)  for f in home_fixtures]))
+        away_form = ''.join(filter(None, [_result_char(f, False) for f in away_fixtures]))
+
+        team.form_home = home_form[:6]
+        team.form_away = away_form[:6]
         team.save(update_fields=["form_overall", "form_home", "form_away"])
 
     def _apply_standings(self, team: "Team", fs_team_id: str, standings: list):
@@ -321,8 +348,26 @@ class Command(BaseCommand):
             # correctly weights recent matches more than old ones.
             # Without this, position 0 gets weight 1.0 regardless of date.
             combined = p1 + p2
+
+            # Filter to domestic league only for domestic competitions.
+            # For European/continental cups use combined history — a team's
+            # overall form including European matches is relevant context.
+            use_domestic = team.league and team.league.is_domestic
+            domestic_url = getattr(team.league, "tournament_url", "") if team.league else ""
+
+            if use_domestic and domestic_url:
+                domestic_only = [
+                    r for r in combined
+                    if not r.get("tournament_url") or
+                    r.get("tournament_url") == domestic_url
+                ]
+                results_pool = domestic_only if len(domestic_only) >= 5 else combined
+            else:
+                # Cup/European fixture — use all competitions
+                results_pool = combined
+
             results = sorted(
-                [r for r in combined if r.get("timestamp")],
+                [r for r in results_pool if r.get("timestamp")],
                 key=lambda r: int(r["timestamp"]),
                 reverse=True,
             )

@@ -19,6 +19,19 @@ class League(models.Model):
     def __str__(self):
         return f"{self.name} ({self.country})"
 
+    @property
+    def is_domestic(self):
+        """
+        True for domestic league competitions, False for continental/cup.
+        Used to decide whether to filter team history to domestic only.
+        Champions League, Europa League, Conference League etc. return False.
+        """
+        if self.country.lower() in ("europe", "world", "africa", "south america", "asia"):
+            return False
+        if "/europe/" in (self.tournament_url or ""):
+            return False
+        return True
+
     class Meta:
         ordering = ['tier', 'name']
 

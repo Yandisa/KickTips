@@ -17,9 +17,9 @@ MARKET_PREFERENCE = {'1x2': 1, 'btts': 2, 'ou_goals': 3, 'dc': 4, 'corners': 5}
 
 # Confidence floors per acca tier — raised from previous values.
 # Faka Yonke is the flagship product — only the very best tips go in.
-FAKA_MIN_CONF     = 70.0   # was 63 — tightest, only genuinely strong tips
-SHAYA_MIN_CONF    = 65.0   # was 57 — solid mid-tier
-ISTIMELA_MIN_CONF = 60.0   # was 50 — minimum publishable confidence
+FAKA_MIN_CONF     = 66.5   # Lowered from 70.0 — engine caps all confidence at 67%
+SHAYA_MIN_CONF    = 65.0   # Solid mid-tier
+ISTIMELA_MIN_CONF = 60.0   # Widest pool
 
 # Variety caps — prevent any single market or league dominating an acca.
 # A 10-leg acca with 7 "BTTS No" legs looks like padding and loses trust.

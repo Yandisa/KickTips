@@ -83,6 +83,7 @@ KNOWN_TOURNAMENT_URLS: Dict[str, dict] = {
     "/football/portugal/liga-portugal/":      {"name": "Liga Portugal",         "country": "Portugal",     "tier": 1, "api_id": 94},
     "/football/turkey/super-lig/":            {"name": "Super Lig",             "country": "Turkey",       "tier": 1, "api_id": 203},
     "/football/scotland/premiership/":        {"name": "Scottish Premiership",  "country": "Scotland",     "tier": 1, "api_id": 179},
+    # ── Tier 1: Central/Eastern Europe ───────────────────────────────────
     "/football/belgium/pro-league/":          {"name": "Pro League",            "country": "Belgium",      "tier": 1, "api_id": 144},
     "/football/greece/super-league/":         {"name": "Super League",          "country": "Greece",       "tier": 1, "api_id": 197},
     "/football/russia/premier-league/":       {"name": "Russian Premier",       "country": "Russia",       "tier": 1, "api_id": 235},
@@ -95,6 +96,21 @@ KNOWN_TOURNAMENT_URLS: Dict[str, dict] = {
     "/football/poland/ekstraklasa/":          {"name": "Ekstraklasa",           "country": "Poland",       "tier": 1, "api_id": 106},
     "/football/croatia/hnl/":                 {"name": "HNL",                   "country": "Croatia",      "tier": 1, "api_id": 210},
     "/football/serbia/super-liga/":           {"name": "Super Liga",            "country": "Serbia",       "tier": 1, "api_id": 292},
+    "/football/hungary/nb-i/":                {"name": "NB I",                  "country": "Hungary",      "tier": 1, "api_id": 308},
+    "/football/slovakia/super-liga/":         {"name": "Super Liga",            "country": "Slovakia",     "tier": 1, "api_id": 332},
+    "/football/romania/superliga/":           {"name": "Superliga",             "country": "Romania",      "tier": 1, "api_id": 283},
+    "/football/bulgaria/first-league/":       {"name": "First League",          "country": "Bulgaria",     "tier": 1, "api_id": 172},
+    "/football/ukraine/premier-league/":      {"name": "Ukrainian Premier",     "country": "Ukraine",      "tier": 1, "api_id": 333},
+    "/football/israel/premier-league/":       {"name": "Israeli Premier",       "country": "Israel",       "tier": 1, "api_id": 382},
+    # ── Tier 1: Middle East/Asia expanded ────────────────────────────────
+    "/football/saudi-arabia/saudi-pro-league/": {"name": "Saudi Pro League",    "country": "Saudi Arabia", "tier": 1, "api_id": 307},
+    "/football/uae/pro-league/":              {"name": "UAE Pro League",        "country": "UAE",          "tier": 1, "api_id": 435},
+    "/football/qatar/stars-league/":          {"name": "Qatar Stars League",    "country": "Qatar",        "tier": 1, "api_id": 512},
+    "/football/japan/j1-league/":             {"name": "J1 League",             "country": "Japan",        "tier": 1, "api_id": 98},
+    "/football/south-korea/k-league-1/":      {"name": "K League 1",            "country": "South Korea",  "tier": 1, "api_id": 871},
+    "/football/china/super-league/":          {"name": "Chinese Super League",  "country": "China",        "tier": 1, "api_id": 169},
+    "/football/australia/a-league/":          {"name": "A-League",              "country": "Australia",    "tier": 1, "api_id": 188},
+    "/football/india/super-league/":          {"name": "Indian Super League",   "country": "India",        "tier": 1, "api_id": 323},
     # ── Tier 1: African ───────────────────────────────────────────────────
     "/football/south-africa/psl/":            {"name": "PSL",                   "country": "South Africa", "tier": 1, "api_id": 288},
     "/football/egypt/premier-league/":        {"name": "Egyptian Premier",      "country": "Egypt",        "tier": 1, "api_id": 233},
@@ -761,18 +777,20 @@ def fetch_team_results(team_id: str, page: int = 1) -> List[dict]:
 
     matches = []
     for tournament_block in data:
+        tournament_url = tournament_block.get("tournament_url", "")
         for match in tournament_block.get("matches", []):
             home   = match.get("home_team") or {}
             away   = match.get("away_team") or {}
             scores = match.get("scores") or {}
             matches.append({
-                "match_id":     match.get("match_id"),
-                "timestamp":    match.get("timestamp"),
-                "home_team_id": home.get("team_id"),
-                "away_team_id": away.get("team_id"),
-                "home_score":   scores.get("home"),
-                "away_score":   scores.get("away"),
-                "is_home":      str(home.get("team_id") or "") == str(team_id),
+                "match_id":       match.get("match_id"),
+                "timestamp":      match.get("timestamp"),
+                "home_team_id":   home.get("team_id"),
+                "away_team_id":   away.get("team_id"),
+                "home_score":     scores.get("home"),
+                "away_score":     scores.get("away"),
+                "is_home":        str(home.get("team_id") or "") == str(team_id),
+                "tournament_url": tournament_url,
             })
     return matches
 

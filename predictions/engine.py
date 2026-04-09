@@ -39,6 +39,10 @@ REQUIRE_ODDS       = True    # All markets require bookmaker odds
 
 # ── Market-specific thresholds ────────────────────────────────────────────────
 MIN_1X2_CONFIDENCE    = 68.0  # 1X2 is weakest market — stricter floor
+# 1X2 max odds cap — calibration data shows every 1X2 tip at odds > 2.50
+# lost except one fluke. The model consistently mislabels underdogs as high
+# confidence. Cap at 2.50 to kill long-shot 1X2 tips.
+MAX_1X2_BOOKIE_DECIMAL = 2.50
 MIN_CORNER_CONFIDENCE = 60.0  # Corners — permissive floor, tier+data gates do the work
 MIN_CORNER_DECIMAL    = 1.50  # Corners need decent bookie prices to be worth publishing
 MIN_CORNER_DATA_PTS   = 7     # Both teams need this many games before corners fires
@@ -47,6 +51,12 @@ MIN_DC_FAIR_DECIMAL   = 1.18  # DC covers 2 outcomes — fair price below 1.20 m
 MIN_GOALS_CONFIDENCE = 63.0  # Goals market — slightly more permissive than global 65%
 MIN_PUBLISHABLE_DECIMAL = 1.40  # Any bookie price below this is not bettable —
                                  # Over 0.5, Under 4.5 etc. fail this gate automatically.
+# ── Confidence display cap ────────────────────────────────────────────────────
+# Calibration data (179 tips) shows the model is overconfident in every band.
+# Temperature scaling T=8 collapses all confidence to ~52-54% — rank ordering
+# is broken. Cap displayed confidence at 67% to avoid misleading punters until
+# enough data exists to fit a proper calibration.
+MAX_DISPLAY_CONFIDENCE = 67.0
 # ── No-odds penalty ───────────────────────────────────────────────────────────
 NO_ODDS_PENALTY   = 15.0    # pp knocked off confidence when no bookmaker odds
 
@@ -407,6 +417,12 @@ def predict_1x2(home, away, h2h_results, league, odds=None):
             key=lambda x: x[0])
 
         bookie_dec = (odds.get("1x2", {}).get(odds_key)) if odds else None
+
+        # Kill long-shot 1X2 tips — calibration data shows every tip at
+        # odds > 2.50 lost except one. The model mislabels underdogs.
+        if bookie_dec and bookie_dec > MAX_1X2_BOOKIE_DECIMAL:
+            return _skip("no_value")
+
         vc = _value_check(best_prob, bookie_dec)
         if not vc["has_value"]:
             return _skip("no_value")
@@ -421,7 +437,9 @@ def predict_1x2(home, away, h2h_results, league, odds=None):
         elif signals_agree is False:
             confidence -= 3.0   # models disagree — penalise more than boost
 
-        confidence = round(max(0, min(confidence, 82)), 1)
+        # Apply display cap — confidence above this is not meaningful given
+        # current calibration data. Keeps displayed numbers honest.
+        confidence = round(max(0, min(confidence, MAX_DISPLAY_CONFIDENCE)), 1)
 
         if confidence < MIN_1X2_CONFIDENCE:
             return _skip("low_confidence")
@@ -488,7 +506,7 @@ def predict_goals(home, away, h2h_results, league, odds=None):
                 continue
             cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="ou_goals")
             conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
-            conf = round(max(0, min(conf, 82)), 1)
+            conf = round(max(0, min(conf, MAX_DISPLAY_CONFIDENCE)), 1)
             if conf < MIN_GOALS_CONFIDENCE:
                 continue
             candidate = {
@@ -561,7 +579,7 @@ def predict_btts(home, away, h2h_results, league, odds=None):
 
         cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="btts")
         conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
-        conf = round(max(0, min(conf, 82)), 1)
+        conf = round(max(0, min(conf, MAX_DISPLAY_CONFIDENCE)), 1)
 
         if conf < MIN_CONFIDENCE:
             return _skip("low_confidence")
@@ -643,7 +661,7 @@ def predict_double_chance(home, away, h2h_results, league, odds=None):
         cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="dc")
         # Cap DC at 78 — safety market, not a high-confidence call
         conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
-        conf = round(max(0, min(conf, 78)), 1)
+        conf = round(max(0, min(conf, MAX_DISPLAY_CONFIDENCE)), 1)
 
         if conf < MIN_CONFIDENCE:
             return _skip("low_confidence")
@@ -745,7 +763,7 @@ def predict_corners(home, away, referee, h2h_results, league, odds=None):
             cb   = _build_confidence(model_prob, bookie_dec, edge, market="corners")
             vc   = {"has_value": True, "edge": edge, "bookie_decimal": bookie_dec}
             conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
-            conf = round(max(0, min(conf, 82)), 1)
+            conf = round(max(0, min(conf, MAX_DISPLAY_CONFIDENCE)), 1)
 
             if conf < MIN_CORNER_CONFIDENCE:
                 continue

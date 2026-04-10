@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 RAPID_API_KEY = getattr(settings, "RAPID_API_KEY", "")
 FS_HOST       = getattr(settings, "FLASHSCORE_API_HOST", "flashscore4.p.rapidapi.com")
 FS_BASE       = getattr(settings, "FLASHSCORE_API_BASE_URL", "https://flashscore4.p.rapidapi.com")
-FS_TIMEOUT    = getattr(settings, "FLASHSCORE_API_TIMEOUT", 35)
+FS_TIMEOUT    = getattr(settings, "FLASHSCORE_API_TIMEOUT", 50)
 
 # ── Soccer Football Info API ──────────────────────────────────────────────────
 SI_HOST    = getattr(settings, "SOCCER_INFO_API_HOST",    "soccer-football-info.p.rapidapi.com")

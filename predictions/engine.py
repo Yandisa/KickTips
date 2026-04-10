@@ -615,6 +615,27 @@ def predict_double_chance(home, away, h2h_results, league, odds=None):
             "Away or Draw": aw + dr,
             "Home or Away": hw + aw,
         }
+
+        # H2H blend — time-decayed, same approach as 1X2
+        if h2h_results:
+            weights  = _h2h_weights(h2h_results)
+            total_w  = sum(weights)
+            hw_rate  = sum(w for r, w in zip(h2h_results, weights) if r.get("winner") == "home") / total_w
+            aw_rate  = sum(w for r, w in zip(h2h_results, weights) if r.get("winner") == "away") / total_w
+            dr_rate  = 1 - hw_rate - aw_rate
+            h2h_weight = min(total_w / 20, 0.20)  # max 20% H2H influence on DC
+            hw = hw * (1 - h2h_weight) + hw_rate * h2h_weight
+            dr = dr * (1 - h2h_weight) + dr_rate * h2h_weight
+            aw = aw * (1 - h2h_weight) + aw_rate * h2h_weight
+            # Renormalise
+            total = hw + dr + aw
+            hw /= total; dr /= total; aw /= total
+            combos = {
+                "Home or Draw": hw + dr,
+                "Away or Draw": aw + dr,
+                "Home or Away": hw + aw,
+            }
+
         tip, model_prob = max(combos.items(), key=lambda x: x[1])
 
         # DC needs clear dominance — 72% model floor

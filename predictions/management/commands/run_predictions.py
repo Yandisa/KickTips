@@ -23,6 +23,7 @@ from predictions.engine import (
     predict_double_chance,
     predict_goals,
     predict_btts,
+    predict_corners,
 )
 from predictions.publisher import publish_predictions
 from predictions.reasoner import generate_reasoning
@@ -210,17 +211,13 @@ def _build_candidate(fixture):
             if k in VALID_GOAL_LINES
         }
 
-    # ── Corners: disabled — no usable odds from FlashScore or SoccerInfo ───────
-    # FlashScore only returns a junk 6.5 line (over=31.0, under=1.0 — not real
-    # prices). SoccerInfo fallback returns empty for all tested fixtures.
-    # Corners will be re-enabled when a working odds source is found.
-
     # ── Score all markets ──────────────────────────────────────────────────────
     scored_raw = {
         "1x2":      predict_1x2(home, away, h2h_results, league, odds),
         "dc":       predict_double_chance(home, away, h2h_results, league, odds),
         "ou_goals": predict_goals(home, away, h2h_results, league, odds),
         "btts":     predict_btts(home, away, h2h_results, league, odds),
+        "corners":  predict_corners(home, away, referee, h2h_results, league, odds),
     }
 
     valid_scored = {}

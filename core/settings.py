@@ -137,7 +137,7 @@ FLASHSCORE_API_BASE_URL = config(
 )
 FLASHSCORE_API_TIMEOUT = config(
     "FLASHSCORE_API_TIMEOUT",
-    default=35,
+    default=50,
     cast=int,
 )
 FLASHSCORE_MATCH_DETAILS_PATH = config(
@@ -165,6 +165,6 @@ SOCCER_INFO_API_BASE_URL = config(
 )
 SOCCER_INFO_API_TIMEOUT = config(
     "SOCCER_INFO_API_TIMEOUT",
-    default=15,
+    default=50,
     cast=int,
 )

@@ -37,10 +37,36 @@ MAX_SAME_LEAGUE_PER_ACCA = 4   # raised from 3 — fewer fixtures per day need m
 MARKET_PREFERENCE = {'1x2': 1, 'btts': 2, 'ou_goals': 3, 'dc': 4, 'corners': 5}
 
 
+# Historical win rates by market — used to score tips for acca selection
+# Higher win rate = higher score = more likely to appear in Faka Yonke
+MARKET_WIN_RATES = {
+    'corners': 0.75,   # best performer
+    'dc':      0.55,   # solid
+    'btts':    0.54,   # solid
+    'ou_goals': 0.43,  # weakest
+    '1x2':     0.35,   # avoid
+}
+
 def _score_prediction(pred):
-    conf  = float(pred.confidence or 0)
-    mrank = MARKET_PREFERENCE.get(pred.market, 9)
-    return conf - (mrank * 0.5)
+    """
+    Score a prediction for acca selection.
+    Uses market win rate + edge as primary signals rather than just confidence
+    (which is capped at 67% for everything and creates no separation).
+    """
+    market_wr = MARKET_WIN_RATES.get(pred.market, 0.45)
+    edge      = float(pred.edge or 0)
+    conf      = float(pred.confidence or 0)
+
+    # Base score from market historical win rate (0-1 scale, ×100 for readability)
+    score = market_wr * 100
+
+    # Edge bonus — real bookmaker edge adds value
+    score += edge * 50
+
+    # Small confidence contribution — tie-breaker only
+    score += conf * 0.1
+
+    return score
 
 
 def _leg_decimal(pred):

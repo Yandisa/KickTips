@@ -483,14 +483,14 @@ def accumulators(request):
     faka_legs   = _ranked_unique(all_preds, min_conf=FAKA_MIN_CONF, exclude_markets=used_markets)
     faka_yonke  = _build_acca(faka_legs, size_min=4, size_max=5)
     if faka_yonke:
-    for leg in faka_yonke['legs']:
-        used_markets.add((leg.fixture_id, leg.market))
+        for leg in faka_yonke['legs']:
+            used_markets.add((leg.fixture_id, leg.market))
 
     shaya_legs  = _ranked_unique(all_preds, min_conf=SHAYA_MIN_CONF, exclude_markets=used_markets)
     shaya_zonke = _build_acca(shaya_legs, size_min=5, size_max=8)
     if shaya_zonke:
-    for leg in shaya_zonke['legs']:
-        used_markets.add((leg.fixture_id, leg.market))
+        for leg in shaya_zonke['legs']:
+            used_markets.add((leg.fixture_id, leg.market))
 
     istim_legs  = _ranked_unique(all_preds, min_conf=ISTIMELA_MIN_CONF, exclude_markets=used_markets)
     istimela    = _build_acca(istim_legs, size_min=6, size_max=12)

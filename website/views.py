@@ -41,12 +41,6 @@ MAX_SAME_MARKET_PER_ACCA = 3   # raised from 2 — DC-heavy days need more slots
 MAX_SAME_LEAGUE_PER_ACCA = 4   # raised from 3 — fewer fixtures per day need more flexibility
 
 
-def _score_prediction(pred):
-    conf  = float(pred.confidence or 0)
-    mrank = MARKET_PREFERENCE.get(pred.market, 9)
-    return conf - (mrank * 0.5)
-
-
 def _leg_decimal(pred):
     """
     Return the best available decimal odds for a leg.

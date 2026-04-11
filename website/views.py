@@ -13,18 +13,32 @@ from results.models import PerformanceRecord
 
 # ── Accumulator helpers ───────────────────────────────────────────────────────
 
-MARKET_PREFERENCE = {'1x2': 1, 'btts': 2, 'ou_goals': 3, 'dc': 4, 'corners': 5}
+MARKET_WIN_RATES = {
+    'corners': 0.75,
+    'dc':      0.55,
+    'btts':    0.54,
+    'ou_goals': 0.43,
+    '1x2':     0.35,
+}
 
-# Confidence floors per acca tier — raised from previous values.
-# Faka Yonke is the flagship product — only the very best tips go in.
-FAKA_MIN_CONF     = 66.5   # Lowered from 70.0 — engine caps all confidence at 67%
-SHAYA_MIN_CONF    = 65.0   # Solid mid-tier
-ISTIMELA_MIN_CONF = 60.0   # Widest pool
+# Confidence floors per acca tier
+FAKA_MIN_CONF     = 66.5
+SHAYA_MIN_CONF    = 65.0
+ISTIMELA_MIN_CONF = 60.0
+
+def _score_prediction(pred):
+    market_wr = MARKET_WIN_RATES.get(pred.market, 0.45)
+    edge      = float(pred.edge or 0)
+    conf      = float(pred.confidence or 0)
+    score     = market_wr * 100
+    score    += edge * 50
+    score    += conf * 0.1
+    return score
 
 # Variety caps — prevent any single market or league dominating an acca.
 # A 10-leg acca with 7 "BTTS No" legs looks like padding and loses trust.
-MAX_SAME_MARKET_PER_ACCA = 2   # max legs of the same market type
-MAX_SAME_LEAGUE_PER_ACCA = 3   # max legs from the same league
+MAX_SAME_MARKET_PER_ACCA = 3   # raised from 2 — DC-heavy days need more slots
+MAX_SAME_LEAGUE_PER_ACCA = 4   # raised from 3 — fewer fixtures per day need more flexibility
 
 
 def _score_prediction(pred):
@@ -468,7 +482,7 @@ def accumulators(request):
     # Reduced from previous maximums — a focused 8-leg acca beats a padded 15-leg one.
     faka_yonke  = _build_acca(faka_legs,  size_min=4, size_max=5)
     shaya_zonke = _build_acca(shaya_legs, size_min=5, size_max=8)
-    istimela    = _build_acca(istim_legs, size_min=8, size_max=12)
+    istimela    = _build_acca(istim_legs, size_min=6, size_max=12)
 
     return render(request, "website/accumulators.html", {
         "today":           today,

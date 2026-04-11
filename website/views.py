@@ -54,19 +54,31 @@ def _leg_decimal(pred):
     return round(1.0 / max(conf / 100, 0.01), 2)
 
 
-def _ranked_unique(predictions, min_conf=0.0):
+def _ranked_unique(predictions, min_conf=0.0, exclude_markets=None):
     """
-    One prediction per real-world match (home+away team pair),
-    filtered to min_conf, sorted best-scored first.
+    One tip per fixture, best-scored, filtered by min_conf.
+    exclude_markets: set of (fixture_id, market) already used in higher tiers.
+    Allows Shaya/Istimela to pick different markets from same fixture as Faka.
     """
-    by_match = {}
-    for pred in predictions:
+    exclude_markets = exclude_markets or set()
+    seen_fixtures   = set()
+    ranked          = []
+
+    for pred in sorted(predictions, key=_score_prediction, reverse=True):
         if float(pred.confidence or 0) < min_conf:
             continue
-        key = (pred.fixture.home_team_id, pred.fixture.away_team_id)
-        if key not in by_match or _score_prediction(pred) > _score_prediction(by_match[key]):
-            by_match[key] = pred
-    return sorted(by_match.values(), key=_score_prediction, reverse=True)
+        fid    = pred.fixture_id
+        market = pred.market
+
+        if (fid, market) in exclude_markets:
+            continue
+        if fid in seen_fixtures:
+            continue
+
+        seen_fixtures.add(fid)
+        ranked.append(pred)
+
+    return ranked
 
 
 def _build_acca(legs, size_min, size_max):
@@ -463,20 +475,25 @@ def accumulators(request):
         .order_by("-confidence")
     )
 
-    # Each tier has its own confidence floor and independent ranked pool.
-    # _build_acca enforces market and league variety within each pool —
-    # so Shaya Zonke won't have 5 BTTS legs from the same league.
-    faka_legs  = _ranked_unique(all_preds, min_conf=FAKA_MIN_CONF)
-    shaya_legs = _ranked_unique(all_preds, min_conf=SHAYA_MIN_CONF)
-    istim_legs = _ranked_unique(all_preds, min_conf=ISTIMELA_MIN_CONF)
+    # Build tiers sequentially, tracking which fixture+market pairs are used
+    # so each tier picks a different market from fixtures with multiple predictions.
+    # Arsenal with DC + corners + BTTS: Faka gets DC, Shaya gets corners, Istimela gets BTTS.
+    used_markets: set = set()
+
+    faka_legs   = _ranked_unique(all_preds, min_conf=FAKA_MIN_CONF, exclude_markets=used_markets)
+    faka_yonke  = _build_acca(faka_legs, size_min=4, size_max=5)
+    for leg in faka_yonke:
+        used_markets.add((leg.fixture_id, leg.market))
+
+    shaya_legs  = _ranked_unique(all_preds, min_conf=SHAYA_MIN_CONF, exclude_markets=used_markets)
+    shaya_zonke = _build_acca(shaya_legs, size_min=5, size_max=8)
+    for leg in shaya_zonke:
+        used_markets.add((leg.fixture_id, leg.market))
+
+    istim_legs  = _ranked_unique(all_preds, min_conf=ISTIMELA_MIN_CONF, exclude_markets=used_markets)
+    istimela    = _build_acca(istim_legs, size_min=6, size_max=12)
 
     total_available = len(istim_legs)
-
-    # Size ranges: Faka tight (4-5), Shaya medium (5-8), Istimela long (8-12).
-    # Reduced from previous maximums — a focused 8-leg acca beats a padded 15-leg one.
-    faka_yonke  = _build_acca(faka_legs,  size_min=4, size_max=5)
-    shaya_zonke = _build_acca(shaya_legs, size_min=5, size_max=8)
-    istimela    = _build_acca(istim_legs, size_min=6, size_max=12)
 
     return render(request, "website/accumulators.html", {
         "today":           today,

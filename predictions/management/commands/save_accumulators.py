@@ -80,20 +80,32 @@ def _leg_decimal(pred):
     return min(fair, 5.0)
 
 
-def _ranked_unique(all_preds, min_conf):
+def _ranked_unique(all_preds, min_conf, exclude_markets=None):
     """
     One tip per fixture, best-scored, filtered by min_conf.
-    Mirrors views._ranked_unique exactly.
+    exclude_markets: set of (fixture_id, market) pairs already used in higher tiers.
+    This allows Shaya to pick a different market from the same fixture than Faka.
     """
-    seen_fixtures = set()
-    ranked = []
+    exclude_markets = exclude_markets or set()
+    seen_fixtures   = set()
+    ranked          = []
+
     for pred in sorted(all_preds, key=_score_prediction, reverse=True):
         if float(pred.confidence or 0) < min_conf:
             continue
-        if pred.fixture_id in seen_fixtures:
+        fid    = pred.fixture_id
+        market = pred.market
+
+        # Skip if this exact fixture+market was used in a higher tier
+        if (fid, market) in exclude_markets:
             continue
-        seen_fixtures.add(pred.fixture_id)
+        # Skip if this fixture already has a leg in this tier
+        if fid in seen_fixtures:
+            continue
+
+        seen_fixtures.add(fid)
         ranked.append(pred)
+
     return ranked
 
 
@@ -167,18 +179,28 @@ class Command(BaseCommand):
 
         self.stdout.write(f"Pool: {len(all_preds)} published tips")
 
-        tiers = [
-            ("faka_yonke",  _ranked_unique(all_preds, FAKA_MIN_CONF),  4, 5),
-            ("shaya_zonke", _ranked_unique(all_preds, SHAYA_MIN_CONF), 5, 8),
-            ("istimela",    _ranked_unique(all_preds, ISTIMELA_MIN_CONF), 6, 12),
+        # Track which (fixture_id, market) pairs are used per tier
+        # so each tier can pick a different market from the same fixture.
+        # Faka picks best market, Shaya picks next best, Istimela picks third.
+        used_markets: set = set()
+
+        tier_configs = [
+            ("faka_yonke",  FAKA_MIN_CONF,     4, 5),
+            ("shaya_zonke", SHAYA_MIN_CONF,     5, 8),
+            ("istimela",    ISTIMELA_MIN_CONF,  6, 12),
         ]
 
-        for tier_key, pool, size_min, size_max in tiers:
+        for tier_key, min_conf, size_min, size_max in tier_configs:
+            pool = _ranked_unique(all_preds, min_conf, exclude_markets=used_markets)
             legs = _build_acca(pool, size_min, size_max)
 
             if not legs:
                 self.stdout.write(f"  {tier_key}: insufficient legs (need {size_min}+, got {len(pool)} in pool)")
                 continue
+
+            # Record which fixture+market combinations this tier used
+            for leg in legs:
+                used_markets.add((leg.fixture_id, leg.market))
 
             odds = _combined_odds(legs)
 

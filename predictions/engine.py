@@ -39,7 +39,9 @@ REQUIRE_ODDS       = False   # TEMP: disabled for one-day test (2026-04-12)
                               # Monitor results then decide whether to keep off permanently
 
 # ── Market-specific thresholds ────────────────────────────────────────────────
-MIN_1X2_CONFIDENCE    = 68.0  # 1X2 is weakest market — stricter floor
+MIN_1X2_CONFIDENCE    = 66.0  # Lowered from 68.0 — MAX_DISPLAY_CONFIDENCE=67.0
+                               # means 68 was unreachable. 66 allows 1X2 to fire
+                               # on strong model signals while staying selective.
 # 1X2 max odds cap — calibration data shows every 1X2 tip at odds > 2.50
 # lost except one fluke. The model consistently mislabels underdogs as high
 # confidence. Cap at 2.50 to kill long-shot 1X2 tips.

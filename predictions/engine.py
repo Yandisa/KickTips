@@ -35,8 +35,8 @@ MIN_BOOKIE_DECIMAL = 1.25    # Below this bookmaker implies >80% — skip
                               # Lowered from 1.50 to allow DC + Over 1.5
 MIN_FAIR_DECIMAL   = 1.30    # Below this our model implies >77% — skip (1X2/goals/btts)
 MIN_CONFIDENCE     = 65.0    # Global publish floor
-REQUIRE_ODDS       = False   # TEMP: disabled for one-day test (2026-04-12)
-                              # Monitor results then decide whether to keep off permanently
+REQUIRE_ODDS       = True    # Goals and 1X2 require bookmaker odds for value gate.
+                              # Corners and BTTS have their own no-odds paths.
 
 # ── Market-specific thresholds ────────────────────────────────────────────────
 MIN_1X2_CONFIDENCE    = 66.0  # Lowered from 68.0 — MAX_DISPLAY_CONFIDENCE=67.0
@@ -61,8 +61,7 @@ MIN_PUBLISHABLE_DECIMAL = 1.40  # Any bookie price below this is not bettable �
 # enough data exists to fit a proper calibration.
 MAX_DISPLAY_CONFIDENCE = 67.0
 # ── No-odds penalty ───────────────────────────────────────────────────────────
-NO_ODDS_PENALTY   = 5.0     # Reduced from 15.0 — with REQUIRE_ODDS=False tips without
-                              # odds still get a small penalty but aren't killed outright
+NO_ODDS_PENALTY   = 15.0    # pp knocked off confidence when no bookmaker odds
 
 # ── Dixon-Coles correction ────────────────────────────────────────────────────
 # RHO is negative: 0-0 and 1-1 scorelines occur MORE than independent Poisson

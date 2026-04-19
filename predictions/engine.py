@@ -60,6 +60,66 @@ MIN_PUBLISHABLE_DECIMAL = 1.40  # Any bookie price below this is not bettable �
 # is broken. Cap displayed confidence at 67% to avoid misleading punters until
 # enough data exists to fit a proper calibration.
 MAX_DISPLAY_CONFIDENCE = 67.0
+# ── Empirical calibration table ───────────────────────────────────────────────
+# Win rates derived from 604 graded tips (Apr 5 - Apr 13 2026).
+# Used as a publish gate — tip types with historical win rate below
+# MIN_EMPIRICAL_WR are blocked regardless of model confidence.
+# Only applied when sample size is >= 10 (marked reliable).
+# Update this table as more data accumulates.
+MIN_EMPIRICAL_WR = 0.44   # Minimum acceptable historical win rate to publish
+
+EMPIRICAL_WIN_RATES = {
+    # Corners by line — most specific, highest confidence data
+    "corners_Under_12.5": 0.913,   # 23 tips — publish freely
+    "corners_Under_11.5": 0.786,   # 28 tips — publish freely
+    "corners_Under_9.5":  0.769,   # 13 tips — publish freely
+    "corners_Over_7.5":   0.812,   # 16 tips — publish freely
+    "corners_Under_8.5":  0.667,   # 6 tips  — too small, allow
+    "corners_Under_10.5": 0.375,   # 16 tips — BLOCK
+    "corners_Under_7.5":  0.273,   # 11 tips — BLOCK
+    # DC by type
+    "dc_home_or_draw":    0.667,   # 63 tips — publish freely
+    "dc_home_or_away":    0.684,   # 19 tips — publish freely
+    "dc_away_or_draw":    0.489,   # 45 tips — borderline, allow for now
+    # Goals by direction
+    "ou_goals_over":      0.405,   # 84 tips — BLOCK
+    "ou_goals_under":     0.453,   # 117 tips — BLOCK
+    # BTTS
+    "btts_no":            0.491,   # 55 tips — allow (CLV positive)
+    "btts_yes":           0.489,   # 45 tips — allow (CLV neutral)
+    # 1X2
+    "1x2_home":           0.450,   # 40 tips — allow (only viable 1X2)
+    "1x2_away":           0.308,   # 13 tips — BLOCK
+}
+
+def _empirical_key(market: str, tip: str) -> str:
+    """Map a market + tip string to the calibration table key."""
+    if market == "corners":
+        return f"corners_{tip.replace(' ', '_')}"
+    if market == "dc":
+        if "Home or Draw" in tip: return "dc_home_or_draw"
+        if "Home or Away" in tip: return "dc_home_or_away"
+        if "Away or Draw" in tip: return "dc_away_or_draw"
+    if market == "ou_goals":
+        return "ou_goals_over" if "Over" in tip else "ou_goals_under"
+    if market == "btts":
+        return "btts_no" if "No" in tip else "btts_yes"
+    if market == "1x2":
+        if "Home Win" in tip: return "1x2_home"
+        if "Away Win" in tip: return "1x2_away"
+        return "1x2_draw"
+    return ""
+
+def _passes_calibration(market: str, tip: str) -> bool:
+    """
+    Returns True if this tip type has acceptable historical win rate.
+    Tips with win rates below MIN_EMPIRICAL_WR are blocked.
+    Unknown tip types (not in table) pass by default.
+    """
+    key = _empirical_key(market, tip)
+    if not key or key not in EMPIRICAL_WIN_RATES:
+        return True
+    return EMPIRICAL_WIN_RATES[key] >= MIN_EMPIRICAL_WR
 # ── No-odds penalty ───────────────────────────────────────────────────────────
 NO_ODDS_PENALTY   = 15.0    # pp knocked off confidence when no bookmaker odds
 
@@ -447,6 +507,9 @@ def predict_1x2(home, away, h2h_results, league, odds=None):
         if confidence < MIN_1X2_CONFIDENCE:
             return _skip("low_confidence")
 
+        if not _passes_calibration("1x2", tip):
+            return _skip("low_confidence")
+
         return {
             "tip": tip, "confidence": confidence, "skip_reason": "",
             "expected_value": round(best_prob * 100, 1),
@@ -512,8 +575,11 @@ def predict_goals(home, away, h2h_results, league, odds=None):
             conf = round(max(0, min(conf, MAX_DISPLAY_CONFIDENCE)), 1)
             if conf < MIN_GOALS_CONFIDENCE:
                 continue
+            tip_str = f"{side} {line}"
+            if not _passes_calibration("ou_goals", tip_str):
+                continue
             candidate = {
-                "tip": f"{side} {line}", "confidence": conf, "skip_reason": "",
+                "tip": tip_str, "confidence": conf, "skip_reason": "",
                 "expected_value": round(expected, 2),
                 "bookie_decimal": vc["bookie_decimal"], "edge": vc["edge"],
             }
@@ -585,6 +651,9 @@ def predict_btts(home, away, h2h_results, league, odds=None):
         conf = round(max(0, min(conf, MAX_DISPLAY_CONFIDENCE)), 1)
 
         if conf < MIN_CONFIDENCE:
+            return _skip("low_confidence")
+
+        if not _passes_calibration("btts", tip):
             return _skip("low_confidence")
 
         return {
@@ -690,6 +759,9 @@ def predict_double_chance(home, away, h2h_results, league, odds=None):
         if conf < MIN_CONFIDENCE:
             return _skip("low_confidence")
 
+        if not _passes_calibration("dc", tip):
+            return _skip("low_confidence")
+
         return {
             "tip": tip, "confidence": conf, "skip_reason": "",
             "expected_value": round(model_prob * 100, 1),
@@ -792,8 +864,12 @@ def predict_corners(home, away, referee, h2h_results, league, odds=None):
             if conf < MIN_CORNER_CONFIDENCE:
                 continue
 
+            corner_tip = f"{side} {line}"
+            if not _passes_calibration("corners", corner_tip):
+                continue
+
             candidate = {
-                "tip": f"{side} {line}", "confidence": conf, "skip_reason": "",
+                "tip": corner_tip, "confidence": conf, "skip_reason": "",
                 "expected_value": round(expected, 2),
                 "bookie_decimal": vc["bookie_decimal"], "edge": vc["edge"],
             }

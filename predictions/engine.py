@@ -45,7 +45,8 @@ MIN_1X2_CONFIDENCE    = 66.0  # Lowered from 68.0 — MAX_DISPLAY_CONFIDENCE=67.
 # 1X2 max odds cap — calibration data shows every 1X2 tip at odds > 2.50
 # lost except one fluke. The model consistently mislabels underdogs as high
 # confidence. Cap at 2.50 to kill long-shot 1X2 tips.
-MAX_1X2_BOOKIE_DECIMAL = 2.50
+MAX_1X2_BOOKIE_DECIMAL = 1.85  # Calibration: odds >2.20 wins only 27.6% (29 tips)
+                                # 1.40-1.80 wins 63-100%. Keep only short-odds home wins.
 MIN_CORNER_CONFIDENCE = 60.0  # Corners — permissive floor, tier+data gates do the work
 MIN_CORNER_DECIMAL    = 1.50  # Corners need decent bookie prices to be worth publishing
 MIN_CORNER_DATA_PTS   = 7     # Both teams need this many games before corners fires
@@ -567,6 +568,12 @@ def predict_goals(home, away, h2h_results, league, odds=None):
             bookie_dec = None
             if odds and "ou_goals" in odds:
                 bookie_dec = odds["ou_goals"].get(str(line), {}).get(odds_key)
+
+            # O/U Goals dead zones from calibration data:
+            # Odds > 2.20 wins only 26.3% (38 tips) — block high-odds goals tips
+            # Edge > 0.20 wins only 32.8% (67 tips) — paradoxically bad signal
+            if bookie_dec and bookie_dec > 2.20:
+                continue
             vc = _value_check(model_prob, bookie_dec)
             if not vc["has_value"]:
                 continue
@@ -756,6 +763,12 @@ def predict_double_chance(home, away, h2h_results, league, odds=None):
             }
             if not vc["has_value"]:
                 return _skip("no_value")
+
+        # DC dead zone — odds 1.60-2.20 perform at only 40-42% historically.
+        # Below 1.60 wins 63-68%, above 2.20 small sample.
+        # Block the dead zone where bookmaker uncertainty is highest.
+        if bookie_dec and 1.60 <= bookie_dec <= 2.20:
+            return _skip("no_value")
 
         cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="dc")
         # Cap DC at 78 — safety market, not a high-confidence call

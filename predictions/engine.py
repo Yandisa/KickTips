@@ -646,6 +646,12 @@ def predict_btts(home, away, h2h_results, league, odds=None):
         if not vc["has_value"]:
             return _skip("no_value")
 
+        # BTTS dead zone — odds between 1.70 and 2.00 perform at only 40.4%
+        # historically (100 tips). Below 1.70 wins 56.1%, above 2.00 wins 58.3%.
+        # Skip the middle band where neither side has clear conviction.
+        if bookie_dec and 1.70 <= bookie_dec <= 2.00:
+            return _skip("no_value")
+
         cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="btts")
         conf = cb["confidence"] - _sample_penalty(home, away) - _lineup_penalty(home, away)
         conf = round(max(0, min(conf, MAX_DISPLAY_CONFIDENCE)), 1)

@@ -92,6 +92,37 @@
         </div>
       </div>
     {% endfor %}
+
+    {% if combo_tip %}
+    <div class="pred-block" style="border:2px solid var(--accent); background:linear-gradient(135deg, var(--surface) 0%, rgba(99,102,241,0.06) 100%);">
+      <div style="font-family:var(--mono); font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:10px;">
+        ⚡ Combination Bet
+      </div>
+      <div style="display:grid; grid-template-columns:1fr auto; gap:20px; align-items:start;">
+        <div>
+          <div style="font-size:1.05rem; font-weight:700; color:var(--text); margin-bottom:4px;">
+            {{ combo_tip.dc_tip }} + {{ combo_tip.ou_tip }}
+          </div>
+          <div style="font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:8px;">
+            DC @ {{ combo_tip.dc_odds }} × Goals @ {{ combo_tip.ou_odds }}
+          </div>
+          <p style="font-size:13px; color:var(--dim); line-height:1.5; margin:0;">
+            {{ combo_tip.reasoning }}
+          </p>
+          <div style="margin-top:10px; font-size:11px; color:var(--muted); font-family:var(--mono);">
+            ⚠️ Check if your bookmaker offers same-game multis. Markets are correlated — true combined odds may differ.
+          </div>
+        </div>
+        <div style="text-align:right; flex-shrink:0; min-width:76px;">
+          <div style="font-family:var(--display); font-size:2.4rem; line-height:1; letter-spacing:0.02em; color:var(--accent);">
+            {{ combo_tip.combined_odds }}
+          </div>
+          <div style="font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:0.12em; text-transform:uppercase; margin-top:2px; font-weight:600;">combined odds</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 {% endif %}
 

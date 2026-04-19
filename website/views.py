@@ -356,12 +356,76 @@ def _get_team_history(team, is_home_role, limit=5):
     return results
 
 
+def _build_combo_tip(published):
+    """
+    Detect DC + O/U Goals combination on the same fixture.
+    Returns a combo tip dict if alignment is logical, None otherwise.
+
+    Logical alignments:
+      Home or Draw + Under X  — defensive, home side expected to control
+      Away or Draw + Under X  — defensive, away side expected to control
+      Home or Away + Over X   — open game, both sides attacking
+
+    Contradictory (not returned):
+      Home or Draw + Over 3.5 — unlikely to hold a high-scoring game
+    """
+    dc_pred   = next((p for p in published if p.market == "dc"), None)
+    ou_pred   = next((p for p in published if p.market == "ou_goals"), None)
+
+    if not dc_pred or not ou_pred:
+        return None
+
+    dc_tip = dc_pred.tip
+    ou_tip = ou_pred.tip
+
+    # Check logical alignment
+    is_under = "Under" in ou_tip
+    is_over  = "Over" in ou_tip
+    is_home_or_draw  = "Home or Draw"  in dc_tip
+    is_away_or_draw  = "Away or Draw"  in dc_tip
+    is_home_or_away  = "Home or Away"  in dc_tip
+
+    aligned = (
+        (is_under and (is_home_or_draw or is_away_or_draw)) or
+        (is_over  and is_home_or_away)
+    )
+
+    if not aligned:
+        return None
+
+    # Combined odds
+    dc_odds = dc_pred.bookie_decimal or round(1 / (float(dc_pred.confidence or 67) / 100), 2)
+    ou_odds = ou_pred.bookie_decimal or round(1 / (float(ou_pred.confidence or 67) / 100), 2)
+    combined_odds = round(dc_odds * ou_odds, 2)
+
+    # Reasoning
+    if is_under and is_home_or_draw:
+        reasoning = f"Home side expected to control — {dc_tip} suits a tight, low-scoring game ({ou_tip})."
+    elif is_under and is_away_or_draw:
+        reasoning = f"Away side likely to sit deep — {dc_tip} fits a defensive, low-scoring contest ({ou_tip})."
+    elif is_over and is_home_or_away:
+        reasoning = f"Open attacking game expected — {dc_tip} suggests both sides going for it ({ou_tip})."
+    else:
+        reasoning = f"{dc_tip} + {ou_tip} — both markets point the same direction."
+
+    return {
+        "dc_tip":        dc_tip,
+        "ou_tip":        ou_tip,
+        "dc_odds":       dc_odds,
+        "ou_odds":       ou_odds,
+        "combined_odds": combined_odds,
+        "reasoning":     reasoning,
+        "dc_pred":       dc_pred,
+        "ou_pred":       ou_pred,
+    }
+
+
 def match_detail(request, fixture_id):
     fixture = get_object_or_404(
         Fixture.objects.select_related("home_team", "away_team", "league", "referee"),
         pk=fixture_id,
     )
-    published = Prediction.objects.filter(fixture=fixture, published=True).order_by("publish_rank")
+    published = list(Prediction.objects.filter(fixture=fixture, published=True).order_by("publish_rank"))
     skipped   = Prediction.objects.filter(fixture=fixture, published=False).order_by("market", "-confidence")
 
     # Team history from DB (recent finished matches)
@@ -371,6 +435,9 @@ def match_detail(request, fixture_id):
     # Form strings from Team model
     home_form_chars = list(fixture.home_team.form_home[:5]) if fixture.home_team.form_home else []
     away_form_chars = list(fixture.away_team.form_away[:5]) if fixture.away_team.form_away else []
+
+    # Combo tip — DC + O/U Goals alignment
+    combo_tip = _build_combo_tip(published)
 
     # H2H from DB — find fixtures where these two teams met
     from django.db.models import Q as Q2
@@ -403,17 +470,18 @@ def match_detail(request, fixture_id):
         h2h_results.append({"home_score": hs, "away_score": as_, "winner": winner})
 
     return render(request, "website/match_detail.html", {
-        "fixture":        fixture,
-        "published":      published,
-        "skipped":        skipped,
-        "home_history":   home_history,
-        "away_history":   away_history,
+        "fixture":         fixture,
+        "published":       published,
+        "skipped":         skipped,
+        "combo_tip":       combo_tip,
+        "home_history":    home_history,
+        "away_history":    away_history,
         "home_form_chars": home_form_chars,
         "away_form_chars": away_form_chars,
-        "h2h_results":    h2h_results,
-        "h2h_home_wins":  h2h_home_wins,
-        "h2h_away_wins":  h2h_away_wins,
-        "h2h_draws":      h2h_draws,
+        "h2h_results":     h2h_results,
+        "h2h_home_wins":   h2h_home_wins,
+        "h2h_away_wins":   h2h_away_wins,
+        "h2h_draws":       h2h_draws,
     })
 
 

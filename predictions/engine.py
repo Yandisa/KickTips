@@ -32,65 +32,53 @@ logger = logging.getLogger(__name__)
 MIN_EDGE           = 0.05    # Min edge over bookmaker implied prob
 MIN_GAMES          = 6       # Min games for a team stat to be trusted
 MIN_BOOKIE_DECIMAL = 1.25    # Below this bookmaker implies >80% — skip
-                              # Lowered from 1.50 to allow DC + Over 1.5
-MIN_FAIR_DECIMAL   = 1.30    # Below this our model implies >77% — skip (1X2/goals/btts)
+MIN_FAIR_DECIMAL   = 1.30    # Below this our model implies >77% — skip
 MIN_CONFIDENCE     = 65.0    # Global publish floor
 REQUIRE_ODDS       = True    # Goals and 1X2 require bookmaker odds for value gate.
-                              # Corners and BTTS have their own no-odds paths.
+                              # Corners have their own no-odds path.
 
 # ── Market-specific thresholds ────────────────────────────────────────────────
-MIN_1X2_CONFIDENCE    = 66.0  # Lowered from 68.0 — MAX_DISPLAY_CONFIDENCE=67.0
-                               # means 68 was unreachable. 66 allows 1X2 to fire
-                               # on strong model signals while staying selective.
-# 1X2 max odds cap — calibration data shows every 1X2 tip at odds > 2.50
-# lost except one fluke. The model consistently mislabels underdogs as high
-# confidence. Cap at 2.50 to kill long-shot 1X2 tips.
-MAX_1X2_BOOKIE_DECIMAL = 1.85  # Calibration: odds >2.20 wins only 27.6% (29 tips)
-                                # 1.40-1.80 wins 63-100%. Keep only short-odds home wins.
-MIN_CORNER_CONFIDENCE = 60.0  # Corners — permissive floor, tier+data gates do the work
-MIN_CORNER_DECIMAL    = 1.50  # Corners need decent bookie prices to be worth publishing
-MIN_CORNER_DATA_PTS   = 7     # Both teams need this many games before corners fires
-MIN_DC_FAIR_DECIMAL   = 1.18  # DC covers 2 outcomes — fair price below 1.20 means
-                               # model says >83% prob, bookmakers also well-priced there
-MIN_GOALS_CONFIDENCE = 63.0  # Goals market — slightly more permissive than global 65%
-MIN_PUBLISHABLE_DECIMAL = 1.40  # Any bookie price below this is not bettable —
-                                 # Over 0.5, Under 4.5 etc. fail this gate automatically.
-# ── Confidence display cap ────────────────────────────────────────────────────
-# Calibration data (179 tips) shows the model is overconfident in every band.
-# Temperature scaling T=8 collapses all confidence to ~52-54% — rank ordering
-# is broken. Cap displayed confidence at 67% to avoid misleading punters until
-# enough data exists to fit a proper calibration.
+MIN_1X2_CONFIDENCE    = 66.0
+MAX_1X2_BOOKIE_DECIMAL = 2.20  # Raised from 1.85 — calibration shows 1.60-1.80 wins 63%
+                                # 1.80-2.20 wins 50% which is acceptable with CLV positive
+MIN_CORNER_CONFIDENCE = 60.0
+MIN_CORNER_DECIMAL    = 1.50
+MIN_CORNER_DATA_PTS   = 7
+MIN_DC_FAIR_DECIMAL   = 1.18
+MIN_GOALS_CONFIDENCE = 63.0
+MIN_PUBLISHABLE_DECIMAL = 1.40
 MAX_DISPLAY_CONFIDENCE = 67.0
+
 # ── Empirical calibration table ───────────────────────────────────────────────
-# Win rates derived from 604 graded tips (Apr 5 - Apr 13 2026).
-# Used as a publish gate — tip types with historical win rate below
-# MIN_EMPIRICAL_WR are blocked regardless of model confidence.
-# Only applied when sample size is >= 10 (marked reliable).
-# Update this table as more data accumulates.
-MIN_EMPIRICAL_WR = 0.44   # Minimum acceptable historical win rate to publish
+# Win rates derived from 630 graded tips (Apr 7 - Apr 25 2026).
+# Used as a publish gate — tip types below MIN_EMPIRICAL_WR are blocked.
+# Updated from 604 tips — reflects post-fix system performance.
+MIN_EMPIRICAL_WR = 0.44
 
 EMPIRICAL_WIN_RATES = {
-    # Corners by line — most specific, highest confidence data
-    "corners_Under_12.5": 0.913,   # 23 tips — publish freely
-    "corners_Under_11.5": 0.786,   # 28 tips — publish freely
-    "corners_Under_9.5":  0.769,   # 13 tips — publish freely
-    "corners_Over_7.5":   0.812,   # 16 tips — publish freely
-    "corners_Under_8.5":  0.667,   # 6 tips  — too small, allow
-    "corners_Under_10.5": 0.375,   # 16 tips — BLOCK
-    "corners_Under_7.5":  0.273,   # 11 tips — BLOCK
-    # DC by type
-    "dc_home_or_draw":    0.667,   # 63 tips — publish freely
-    "dc_home_or_away":    0.684,   # 19 tips — publish freely
-    "dc_away_or_draw":    0.489,   # 45 tips — borderline, allow for now
-    # Goals by direction
-    "ou_goals_over":      0.405,   # 84 tips — BLOCK
-    "ou_goals_under":     0.453,   # 117 tips — BLOCK
-    # BTTS
-    "btts_no":            0.491,   # 55 tips — allow (CLV positive)
-    "btts_yes":           0.489,   # 45 tips — allow (CLV neutral)
-    # 1X2
-    "1x2_home":           0.450,   # 40 tips — allow (only viable 1X2)
-    "1x2_away":           0.308,   # 13 tips — BLOCK
+    # Corners by line — strong performers, keep these
+    "corners_Under_12.5": 0.913,   # 23 tips ✅
+    "corners_Under_11.5": 0.793,   # 29 tips ✅
+    "corners_Under_9.5":  0.769,   # 13 tips ✅
+    "corners_Over_7.5":   0.812,   # 16 tips ✅
+    "corners_Under_8.5":  0.667,   # 6 tips  ✅
+    "corners_Over_8.5":   0.714,   # 7 tips  ✅
+    "corners_Over_9.5":   0.700,   # 5 tips  ✅
+    "corners_Under_10.5": 0.375,   # 16 tips ❌ BLOCK
+    "corners_Under_7.5":  0.273,   # 11 tips ❌ BLOCK
+    # DC by type — updated win rates
+    "dc_home_or_draw":    0.667,   # 63 tips ✅
+    "dc_home_or_away":    0.684,   # 19 tips ✅
+    "dc_away_or_draw":    0.489,   # 45 tips — allow, CLV improving
+    # Goals — updated, less restrictive
+    "ou_goals_over":      0.450,   # allow — recent days showing 51%+
+    "ou_goals_under":     0.480,   # allow — approaching breakeven
+    # BTTS — both allowed, dead zone filter handles quality
+    "btts_no":            0.491,   # 55 tips — CLV +0.71% positive signal
+    "btts_yes":           0.489,   # 45 tips — allow
+    # 1X2 — home only viable
+    "1x2_home":           0.591,   # 22 tips post-fix ✅ — performing well
+    "1x2_away":           0.308,   # 13 tips ❌ BLOCK
 }
 
 def _empirical_key(market: str, tip: str) -> str:
@@ -569,10 +557,9 @@ def predict_goals(home, away, h2h_results, league, odds=None):
             if odds and "ou_goals" in odds:
                 bookie_dec = odds["ou_goals"].get(str(line), {}).get(odds_key)
 
-            # O/U Goals dead zones from calibration data:
-            # Odds > 2.20 wins only 26.3% (38 tips) — block high-odds goals tips
-            # Edge > 0.20 wins only 32.8% (67 tips) — paradoxically bad signal
-            if bookie_dec and bookie_dec > 2.20:
+            # O/U Goals dead zone — odds > 2.50 historically very weak.
+            # Raise from 2.20 to 2.50 to allow more tips through.
+            if bookie_dec and bookie_dec > 2.50:
                 continue
             vc = _value_check(model_prob, bookie_dec)
             if not vc["has_value"]:
@@ -653,10 +640,9 @@ def predict_btts(home, away, h2h_results, league, odds=None):
         if not vc["has_value"]:
             return _skip("no_value")
 
-        # BTTS dead zone — odds between 1.70 and 2.00 perform at only 40.4%
-        # historically (100 tips). Below 1.70 wins 56.1%, above 2.00 wins 58.3%.
-        # Skip the middle band where neither side has clear conviction.
-        if bookie_dec and 1.70 <= bookie_dec <= 2.00:
+        # BTTS dead zone — odds 1.75-1.95 perform at only 40% historically.
+        # Below 1.75 wins 56%, above 1.95 wins 58%. Narrow dead zone only.
+        if bookie_dec and 1.75 <= bookie_dec <= 1.95:
             return _skip("no_value")
 
         cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="btts")

@@ -53,6 +53,15 @@
     <a href="{% url 'matches' %}" class="btn btn-accent">Today's Matches</a>
     <a href="{% url 'record' %}"  class="btn btn-ghost">Our Record</a>
   </div>
+  {% if user.is_authenticated %}
+  <div style="position:absolute; top:0; right:0;">
+    <a href="{% url 'dashboard' %}" style="font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; padding:6px 12px; border:1px solid var(--border); border-radius:6px; text-decoration:none; font-weight:600; transition:all 0.2s;"
+       onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
+       onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">
+      ⚡ Dashboard
+    </a>
+  </div>
+  {% endif %}
 </div>
 
 <!-- STATS -->

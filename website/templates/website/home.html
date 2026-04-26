@@ -53,15 +53,6 @@
     <a href="{% url 'matches' %}" class="btn btn-accent">Today's Matches</a>
     <a href="{% url 'record' %}"  class="btn btn-ghost">Our Record</a>
   </div>
-  {% if user.is_authenticated %}
-  <div style="position:absolute; top:0; right:0;">
-    <a href="{% url 'dashboard' %}" style="font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; padding:6px 12px; border:1px solid var(--border); border-radius:6px; text-decoration:none; font-weight:600; transition:all 0.2s;"
-       onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
-       onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">
-      ⚡ Dashboard
-    </a>
-  </div>
-  {% endif %}
 </div>
 
 <!-- STATS -->
@@ -83,6 +74,70 @@
     <div class="lbl">Incorrect</div>
   </div>
 </div>
+
+{% if user.is_authenticated %}
+<!-- ADMIN PANEL — only visible when logged in -->
+<div style="border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:24px; margin-bottom:44px;">
+  <div class="section-label" style="border:none; padding:0; margin-bottom:20px;">⚡ Admin Panel</div>
+
+  <!-- Today's stats -->
+  <div class="stat-row" style="margin-bottom:20px;">
+    <div class="stat-cell">
+      <div class="val">{{ admin_tips_today }}</div>
+      <div class="lbl">Tips today</div>
+    </div>
+    <div class="stat-cell">
+      <div class="val win">{{ admin_won_today }}</div>
+      <div class="lbl">Won</div>
+    </div>
+    <div class="stat-cell">
+      <div class="val loss">{{ admin_lost_today }}</div>
+      <div class="lbl">Lost</div>
+    </div>
+    <div class="stat-cell">
+      <div class="val {% if admin_wr_today >= 60 %}win{% endif %}">{{ admin_wr_today }}%</div>
+      <div class="lbl">Today WR</div>
+    </div>
+  </div>
+
+  <!-- Market breakdown -->
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px;">
+    {% for market, count in admin_market_counts.items %}
+    <div style="font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:0.08em; padding:5px 12px; border:1px solid var(--border); border-radius:4px; color:var(--muted);">
+      {{ market|upper }}: <span style="color:var(--text);">{{ count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Grade button -->
+  <button onclick="runGrade()" id="gradeBtn" class="btn btn-ghost" style="font-size:13px; padding:10px 20px; cursor:pointer;">
+    ▶ Grade Results Now
+  </button>
+  <a href="{% url 'logout' %}" style="font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:0.08em; margin-left:16px;">Sign out</a>
+  <pre id="gradeOutput" style="display:none; margin-top:16px; background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:14px; font-size:11px; color:var(--muted); white-space:pre-wrap; overflow-x:auto; max-height:260px; overflow-y:auto;"></pre>
+</div>
+
+<script>
+async function runGrade() {
+  const btn = document.getElementById('gradeBtn');
+  const out = document.getElementById('gradeOutput');
+  btn.disabled = true;
+  btn.textContent = '⏳ Grading...';
+  try {
+    const res = await fetch('/admin/grade/');
+    const data = await res.json();
+    out.style.display = 'block';
+    out.textContent = data.output || data.error || 'Done';
+    btn.textContent = '✅ Done';
+  } catch(e) {
+    out.style.display = 'block';
+    out.textContent = 'Error: ' + e.message;
+    btn.textContent = '❌ Failed';
+  }
+  btn.disabled = false;
+}
+</script>
+{% endif %}
 
 <!-- TODAY'S PREDICTIONS -->
 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap;">

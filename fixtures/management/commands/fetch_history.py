@@ -146,7 +146,12 @@ class Command(BaseCommand):
         Returns (fixtures_saved, stats_enriched).
         """
         try:
+            import time as _time
             raw = api_client.fetch_team_results(fs_team_id, page=1)
+            _time.sleep(0.4)
+            raw += api_client.fetch_team_results(fs_team_id, page=2)
+            _time.sleep(0.4)
+            raw += api_client.fetch_team_results(fs_team_id, page=3)
         except Exception as exc:
             logger.warning("fetch_team_results failed %s: %s", team.name, exc)
             return 0, 0
@@ -396,7 +401,7 @@ class Command(BaseCommand):
         if team.league_id and team.league.is_domestic:
             qs = qs.filter(league=team.league)
 
-        fixtures = list(qs[:20])
+        fixtures = list(qs[:30])
         results = []
         for f in fixtures:
             is_home = (f.home_team_id == team.pk)

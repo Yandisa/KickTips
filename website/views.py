@@ -177,12 +177,29 @@ def home(request):
 
     alltime = PerformanceRecord.get_alltime()
 
+    # Admin context — only computed when logged in
+    admin_ctx = {}
+    if request.user.is_authenticated:
+        from collections import Counter
+        tips_today = Prediction.objects.filter(published=True, fixture__kickoff__date=today)
+        graded = tips_today.exclude(result='pending')
+        won = graded.filter(result='won').count()
+        lost = graded.filter(result='lost').count()
+        admin_ctx = {
+            'admin_tips_today':    tips_today.count(),
+            'admin_won_today':     won,
+            'admin_lost_today':    lost,
+            'admin_wr_today':      round(won/(won+lost)*100,1) if (won+lost) else 0,
+            'admin_market_counts': dict(Counter(tips_today.values_list('market', flat=True))),
+        }
+
     return render(request, "website/home.html", {
         "top_matches": top_matches,
         "today": today,
         "alltime": alltime,
         "paypal": settings.PAYPAL_LINK,
         "yoco": settings.YOCO_LINK,
+        **admin_ctx,
     })
 
 

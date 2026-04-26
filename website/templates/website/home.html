@@ -118,13 +118,22 @@
 </div>
 
 <script>
+function getCookie(name) {
+  const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+  return v ? v[2] : null;
+}
 async function runGrade() {
   const btn = document.getElementById('gradeBtn');
   const out = document.getElementById('gradeOutput');
   btn.disabled = true;
   btn.textContent = '⏳ Grading...';
   try {
-    const res = await fetch('/admin/grade/');
+    const res = await fetch('/admin/grade/', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    });
+    if (!res.ok) throw new Error('Server returned ' + res.status);
     const data = await res.json();
     out.style.display = 'block';
     out.textContent = data.output || data.error || 'Done';

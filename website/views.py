@@ -509,26 +509,51 @@ def winners(request):
     return render(request, 'website/winners.html')
 
 def review(request):
-  # Standalone review / feedback page. Data in localStorage.
-  return render(request, 'website/review.html')
+    return render(request, 'website/review.html')
 
 
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse
+
+
+@login_required
+def dashboard(request):
+    """Admin dashboard — only accessible after login."""
+    from datetime import date as dt
+    from collections import Counter
+
+    today = dt.today()
+    tips_today = Prediction.objects.filter(
+        published=True, fixture__kickoff__date=today
+    )
+    graded_today = tips_today.exclude(result='pending')
+    won_today = graded_today.filter(result='won').count()
+    lost_today = graded_today.filter(result='lost').count()
+    pending_today = tips_today.filter(result='pending').count()
+    wr_today = round(won_today / (won_today + lost_today) * 100, 1) if (won_today + lost_today) else 0
+
+    market_counts = Counter(tips_today.values_list('market', flat=True))
+
+    alltime = PerformanceRecord.get_alltime()
+
+    return render(request, 'website/dashboard.html', {
+        'today': today,
+        'tips_today': tips_today.count(),
+        'won_today': won_today,
+        'lost_today': lost_today,
+        'pending_today': pending_today,
+        'wr_today': wr_today,
+        'market_counts': dict(market_counts),
+        'alltime': alltime,
+    })
+
+
+@login_required
 def admin_grade(request):
-    """
-    Frontend trigger for grade_results management command.
-    Protected by ADMIN_TOKEN in settings — only accessible with ?token=XXX.
-    Usage: /admin/grade/?token=your_secret_token
-    """
-    from django.http import JsonResponse
-    from django.core.management import call_command
+    """Trigger grade_results from the dashboard."""
     import io
-
-    token = request.GET.get('token', '')
-    expected = getattr(settings, 'ADMIN_TOKEN', '')
-
-    if not expected or token != expected:
-        return JsonResponse({'error': 'Unauthorized'}, status=403)
-
+    from django.core.management import call_command
     try:
         out = io.StringIO()
         call_command('grade_results', stdout=out)

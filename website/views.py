@@ -568,9 +568,10 @@ def dashboard(request):
 
 @login_required
 def admin_grade(request):
-    """Trigger grade_results from the dashboard."""
+    """Trigger grade_results from the home admin panel."""
     import io
     from django.core.management import call_command
+    from django.http import JsonResponse
     try:
         out = io.StringIO()
         call_command('grade_results', stdout=out)

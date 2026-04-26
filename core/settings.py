@@ -170,4 +170,4 @@ SOCCER_INFO_API_TIMEOUT = config(
 )
 
 LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/dashboard/'
+LOGIN_REDIRECT_URL = '/'

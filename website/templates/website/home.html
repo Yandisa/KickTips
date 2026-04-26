@@ -128,7 +128,7 @@ async function runGrade() {
   btn.disabled = true;
   btn.textContent = '⏳ Grading...';
   try {
-    const res = await fetch('/admin/grade/', {
+    const res = await fetch('/kt-grade/', {
       method: 'GET',
       credentials: 'same-origin',
       headers: { 'X-CSRFToken': getCookie('csrftoken') }

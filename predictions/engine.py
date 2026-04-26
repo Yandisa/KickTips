@@ -39,8 +39,8 @@ REQUIRE_ODDS       = True    # Goals and 1X2 require bookmaker odds for value ga
 
 # ── Market-specific thresholds ────────────────────────────────────────────────
 MIN_1X2_CONFIDENCE    = 66.0
-MAX_1X2_BOOKIE_DECIMAL = 2.20  # Raised from 1.85 — calibration shows 1.60-1.80 wins 63%
-                                # 1.80-2.20 wins 50% which is acceptable with CLV positive
+MAX_1X2_BOOKIE_DECIMAL = 4.00  # Permissive during testing — gather data on
+                                # which 1X2 odds bands actually work.
 MIN_CORNER_CONFIDENCE = 60.0
 MIN_CORNER_DECIMAL    = 1.50
 MIN_CORNER_DATA_PTS   = 7
@@ -53,7 +53,9 @@ MAX_DISPLAY_CONFIDENCE = 67.0
 # Win rates derived from 630 graded tips (Apr 7 - Apr 25 2026).
 # Used as a publish gate — tip types below MIN_EMPIRICAL_WR are blocked.
 # Updated from 604 tips — reflects post-fix system performance.
-MIN_EMPIRICAL_WR = 0.44
+MIN_EMPIRICAL_WR = 0.0       # TESTING MODE — gate disabled, all markets publish
+                              # so we can collect data on what actually works.
+                              # Raise this once we have 1500+ graded tips with stable patterns.
 
 EMPIRICAL_WIN_RATES = {
     # Corners by line — strong performers, keep these
@@ -129,10 +131,6 @@ CORNER_LINES = [7.5, 8.5, 9.5, 10.5, 11.5, 12.5]
 def _implied_mu_from_ou25_rate(rate: float) -> float:
     """
     Invert the Poisson CDF: find mu such that P(goals > 2.5) = rate.
-    Replaces the old `combined_rate * 5.0` magic number which was wrong
-    at the tails. Binary search converges in 50 steps to < 0.001 error.
-
-    P(X > 2.5) = 1 - P(X <= 2) = 1 - e^{-mu}(1 + mu + mu^2/2)
     """
     rate = max(0.05, min(rate, 0.95))
     lo, hi = 0.1, 9.0
@@ -144,6 +142,93 @@ def _implied_mu_from_ou25_rate(rate: float) -> float:
         else:
             hi = mid
     return round((lo + hi) / 2, 4)
+
+
+# ── League empirical goal distribution ────────────────────────────────────────
+# Cache empirical Over/Under rates per league per line.
+# Updated whenever fetch_history runs. Falls back to Poisson if no data.
+_LEAGUE_EMPIRICAL_CACHE = {}
+_EMPIRICAL_MIN_FIXTURES = 30   # Need at least 30 finished matches for reliable rate
+
+def _league_empirical_over_rate(league, line: float) -> float:
+    """
+    Returns the historical rate of Over X goals in a given league.
+    None if insufficient data.
+    """
+    if not league:
+        return None
+    cache_key = (league.id if hasattr(league, 'id') else id(league), line)
+    if cache_key in _LEAGUE_EMPIRICAL_CACHE:
+        return _LEAGUE_EMPIRICAL_CACHE[cache_key]
+
+    try:
+        from fixtures.models import Fixture
+        finished = Fixture.objects.filter(
+            league=league,
+            status='finished',
+            home_score__isnull=False,
+            away_score__isnull=False,
+        ).order_by('-kickoff')[:200]
+        total = 0
+        over = 0
+        for f in finished:
+            goals = (f.home_score or 0) + (f.away_score or 0)
+            total += 1
+            if goals > line:
+                over += 1
+        if total < _EMPIRICAL_MIN_FIXTURES:
+            _LEAGUE_EMPIRICAL_CACHE[cache_key] = None
+            return None
+        rate = over / total
+        _LEAGUE_EMPIRICAL_CACHE[cache_key] = rate
+        return rate
+    except Exception:
+        return None
+
+
+def _league_empirical_btts_rate(league) -> float:
+    """
+    Returns the historical BTTS rate in a given league.
+    None if insufficient data.
+    """
+    if not league:
+        return None
+    cache_key = (league.id if hasattr(league, 'id') else id(league), 'btts')
+    if cache_key in _LEAGUE_EMPIRICAL_CACHE:
+        return _LEAGUE_EMPIRICAL_CACHE[cache_key]
+
+    try:
+        from fixtures.models import Fixture
+        finished = Fixture.objects.filter(
+            league=league,
+            status='finished',
+            home_score__isnull=False,
+            away_score__isnull=False,
+        ).order_by('-kickoff')[:200]
+        total = 0
+        btts = 0
+        for f in finished:
+            total += 1
+            if (f.home_score or 0) > 0 and (f.away_score or 0) > 0:
+                btts += 1
+        if total < _EMPIRICAL_MIN_FIXTURES:
+            _LEAGUE_EMPIRICAL_CACHE[cache_key] = None
+            return None
+        rate = btts / total
+        _LEAGUE_EMPIRICAL_CACHE[cache_key] = rate
+        return rate
+    except Exception:
+        return None
+
+
+def _blend_poisson_with_empirical(poisson_over: float, empirical_rate: float, weight: float = 0.40) -> float:
+    """
+    Blend Poisson over probability with league empirical rate.
+    Weight = how much to trust empirical data (0.40 = 40% empirical, 60% Poisson).
+    """
+    if empirical_rate is None:
+        return poisson_over
+    return poisson_over * (1 - weight) + empirical_rate * weight
 
 
 # ── Poisson engine ────────────────────────────────────────────────────────────
@@ -205,6 +290,22 @@ def _derive_lambdas(home, away, league):
     hga = g(home, "rw_home_goals_against", 0) or g(home, "home_avg_goals_against", 1.1)
     agf = g(away, "rw_away_goals_for", 0) or g(away, "away_avg_goals_for", 1.1)
     aga = g(away, "rw_away_goals_against", 0) or g(away, "away_avg_goals_against", 1.4)
+
+    # ── Shrinkage estimation ───────────────────────────────────────────────
+    # When a team has few games played, pull their stats toward league average.
+    # Teams with 5 games: 50% shrinkage. With 20+ games: 0% shrinkage.
+    # This is what proper MLE does implicitly via prior weighting.
+    home_games = max(1, g(home, "games_played", 5))
+    away_games = max(1, g(away, "games_played", 5))
+    SHRINKAGE_FULL_TRUST = 20  # games at which we fully trust team stats
+    home_trust = min(1.0, home_games / SHRINKAGE_FULL_TRUST)
+    away_trust = min(1.0, away_games / SHRINKAGE_FULL_TRUST)
+
+    # Shrink each rate toward league average
+    hgf = hgf * home_trust + h_avg * (1 - home_trust)
+    hga = hga * home_trust + a_avg * (1 - home_trust)
+    agf = agf * away_trust + a_avg * (1 - away_trust)
+    aga = aga * away_trust + h_avg * (1 - away_trust)
 
     mu_h = (hgf / h_avg) * (aga / h_avg) * h_avg if h_avg > 0 else 1.4
     mu_a = (agf / a_avg) * (hga / a_avg) * a_avg if a_avg > 0 else 1.1
@@ -543,11 +644,15 @@ def predict_goals(home, away, h2h_results, league, odds=None):
         best = None
         for line in GOAL_LINES:
             gap = abs(expected - line)
-            # Tightened upper bound from 1.8 to 1.4 — stops borderline Over 3.5
-            # tips on matches where expected goals is only marginally above the line
             if gap < 0.15 or gap > 1.4:
                 continue
-            over_prob  = probs["over"].get(line, 0)
+            poisson_over_prob = probs["over"].get(line, 0)
+
+            # Blend Poisson with league empirical distribution
+            # Helps when Poisson misestimates due to scoring patterns
+            # specific to the league (low-scoring vs high-scoring leagues)
+            empirical_rate = _league_empirical_over_rate(league, line)
+            over_prob = _blend_poisson_with_empirical(poisson_over_prob, empirical_rate, weight=0.40)
             under_prob = 1 - over_prob
             if over_prob >= under_prob:
                 model_prob, side, odds_key = over_prob,  "Over",  "over"
@@ -556,11 +661,6 @@ def predict_goals(home, away, h2h_results, league, odds=None):
             bookie_dec = None
             if odds and "ou_goals" in odds:
                 bookie_dec = odds["ou_goals"].get(str(line), {}).get(odds_key)
-
-            # O/U Goals dead zone — odds > 2.50 historically very weak.
-            # Raise from 2.20 to 2.50 to allow more tips through.
-            if bookie_dec and bookie_dec > 2.50:
-                continue
             vc = _value_check(model_prob, bookie_dec)
             if not vc["has_value"]:
                 continue
@@ -607,6 +707,13 @@ def predict_btts(home, away, h2h_results, league, odds=None):
         if hb > 0 and ab > 0:
             btts = btts * 0.60 + ((hb + ab) / 2) * 0.40
 
+        # League empirical BTTS rate — corrects for league-specific patterns.
+        # Some leagues are systematically high-BTTS (Eredivisie ~62%) others
+        # low (Ligue 2 ~45%). Poisson alone can't capture this.
+        league_btts_rate = _league_empirical_btts_rate(league)
+        if league_btts_rate is not None:
+            btts = btts * 0.75 + league_btts_rate * 0.25
+
         # O/U 2.5 rate hint — teams that go over 2.5 frequently tend to have
         # BTTS in most matches. Small 10% nudge when both rates are available.
         h_ou25 = getattr(home, "home_ou25_over_rate", 0) or 0
@@ -638,11 +745,6 @@ def predict_btts(home, away, h2h_results, league, odds=None):
         bookie_dec = (odds.get("btts", {}).get(odds_key)) if odds else None
         vc = _value_check(model_prob, bookie_dec)
         if not vc["has_value"]:
-            return _skip("no_value")
-
-        # BTTS dead zone — odds 1.75-1.95 perform at only 40% historically.
-        # Below 1.75 wins 56%, above 1.95 wins 58%. Narrow dead zone only.
-        if bookie_dec and 1.75 <= bookie_dec <= 1.95:
             return _skip("no_value")
 
         cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="btts")
@@ -749,12 +851,6 @@ def predict_double_chance(home, away, h2h_results, league, odds=None):
             }
             if not vc["has_value"]:
                 return _skip("no_value")
-
-        # DC dead zone — odds 1.60-2.20 perform at only 40-42% historically.
-        # Below 1.60 wins 63-68%, above 2.20 small sample.
-        # Block the dead zone where bookmaker uncertainty is highest.
-        if bookie_dec and 1.60 <= bookie_dec <= 2.20:
-            return _skip("no_value")
 
         cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="dc")
         # Cap DC at 78 — safety market, not a high-confidence call

@@ -512,6 +512,31 @@ def review(request):
   # Standalone review / feedback page. Data in localStorage.
   return render(request, 'website/review.html')
 
+
+def admin_grade(request):
+    """
+    Frontend trigger for grade_results management command.
+    Protected by ADMIN_TOKEN in settings — only accessible with ?token=XXX.
+    Usage: /admin/grade/?token=your_secret_token
+    """
+    from django.http import JsonResponse
+    from django.core.management import call_command
+    import io
+
+    token = request.GET.get('token', '')
+    expected = getattr(settings, 'ADMIN_TOKEN', '')
+
+    if not expected or token != expected:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    try:
+        out = io.StringIO()
+        call_command('grade_results', stdout=out)
+        output = out.getvalue()
+        return JsonResponse({'status': 'ok', 'output': output})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+
 def accumulators(request):
     """
     Build today's three accumulator slates from published predictions.

@@ -343,15 +343,14 @@ class Command(BaseCommand):
             time.sleep(TEAM_RESULTS_DELAY)
             p2 = api_client.fetch_team_results(team_id, page=2)
             time.sleep(TEAM_RESULTS_DELAY)
+            p3 = api_client.fetch_team_results(team_id, page=3)
+            time.sleep(TEAM_RESULTS_DELAY)
             # Sort by timestamp descending — most recent first — so that
             # the exponential decay in compute_team_stats_from_results
             # correctly weights recent matches more than old ones.
-            # Without this, position 0 gets weight 1.0 regardless of date.
-            combined = p1 + p2
+            combined = p1 + p2 + p3
 
             # Filter to domestic league only for domestic competitions.
-            # For European/continental cups use combined history — a team's
-            # overall form including European matches is relevant context.
             use_domestic = team.league and team.league.is_domestic
             domestic_url = getattr(team.league, "tournament_url", "") if team.league else ""
 
@@ -371,8 +370,8 @@ class Command(BaseCommand):
                 key=lambda r: int(r["timestamp"]),
                 reverse=True,
             )
-            # Keep up to 20 most recent — beyond that the decay is negligible
-            results = results[:20]
+            # Keep up to 30 most recent — more data = better stats stability
+            results = results[:30]
 
             if results and len(results) >= 5:
                 corner_stat_matches = 6

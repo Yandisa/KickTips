@@ -159,33 +159,12 @@ class Command(BaseCommand):
 
     def _update_scores(self, date_str: str) -> int:
         """
-        Fetch final scores for fixtures not yet marked 'finished'.
-        First checks DB for already-stored scores, then falls back to API.
-        Returns the number of rows updated.
+        Fetch final scores for fixtures not yet marked 'finished' and
+        update the DB in-place. Returns the number of rows updated.
         """
-        from datetime import datetime
-        target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-
-        # Step 1 — use scores already in DB (from fetch_fixtures runs)
-        # This avoids unnecessary API calls and rate limit issues
-        updated = 0
-        db_finished = Fixture.objects.filter(
-            kickoff__date=target_date,
-            status='finished',
-            home_score__isnull=False,
-            away_score__isnull=False,
-        )
-        self.stdout.write(f"Score update: {db_finished.count()} fixture(s) refreshed")
-        return db_finished.count()
-
-        # Step 2 — API fallback for fixtures not yet marked finished
-        # Only runs if DB fixtures are insufficient
         STATUS_RANK = {"finished": 4, "live": 3, "scheduled": 2, "postponed": 1, "cancelled": 0}
-        try:
-            score_updates = fetch_fixtures_finished(date_str)
-        except Exception:
-            return updated
-
+        score_updates = fetch_fixtures_finished(date_str)
+        updated = 0
         for item in score_updates:
             match_id = (item.get("match_id") or "").strip()
             if not match_id:
@@ -207,6 +186,10 @@ class Command(BaseCommand):
                 fixture.away_score = int(item["away_score"])
             fixture.save(update_fields=["status", "home_score", "away_score"])
             updated += 1
+            logger.info("Score updated: %s → %s (%s-%s)",
+                        fixture, new_status,
+                        fixture.home_score, fixture.away_score)
+        self.stdout.write(f"Score update: {updated} fixture(s) refreshed")
         return updated
 
     def _get_fs_match_id(self, fixture) -> str:

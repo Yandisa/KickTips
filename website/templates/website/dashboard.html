@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KickTips Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0f;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+    .logo { font-size: 1.3rem; font-weight: 800; color: #6366f1; }
+    .logout {
+      font-size: 13px;
+      color: #64748b;
+      text-decoration: none;
+      padding: 8px 16px;
+      border: 1px solid #1e1e2e;
+      border-radius: 8px;
+    }
+    .logout:hover { color: #e2e8f0; border-color: #6366f1; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .stat {
+      background: #13131a;
+      border: 1px solid #1e1e2e;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+    .stat-value { font-size: 2rem; font-weight: 800; color: #e2e8f0; }
+    .stat-value.green { color: #34d399; }
+    .stat-value.accent { color: #6366f1; }
+    .section {
+      background: #13131a;
+      border: 1px solid #1e1e2e;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 20px;
+    }
+    .market-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #1e1e2e;
+      font-size: 14px;
+    }
+    .market-row:last-child { border-bottom: none; }
+    .market-name { color: #94a3b8; text-transform: capitalize; }
+    .market-count { font-weight: 700; color: #e2e8f0; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-grade {
+      background: #6366f1;
+      color: white;
+      width: 100%;
+      justify-content: center;
+    }
+    .btn-grade:hover { background: #5558e3; }
+    .btn-grade:disabled { background: #1e1e2e; color: #64748b; cursor: not-allowed; }
+    .output {
+      margin-top: 16px;
+      background: #0a0a0f;
+      border: 1px solid #1e1e2e;
+      border-radius: 8px;
+      padding: 16px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #94a3b8;
+      white-space: pre-wrap;
+      display: none;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .nav-links { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    .nav-link {
+      font-size: 13px;
+      color: #64748b;
+      text-decoration: none;
+      padding: 8px 16px;
+      border: 1px solid #1e1e2e;
+      border-radius: 8px;
+    }
+    .nav-link:hover { color: #e2e8f0; border-color: #6366f1; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">⚡ KICKTIPS DASHBOARD</div>
+    <a href="{% url 'logout' %}" class="logout">Sign out</a>
+  </div>
+
+  <div class="nav-links">
+    <a href="{% url 'home' %}" class="nav-link">🏠 Home</a>
+    <a href="{% url 'matches' %}" class="nav-link">📋 Matches</a>
+    <a href="{% url 'record' %}" class="nav-link">📊 Record</a>
+    <a href="{% url 'accumulators' %}" class="nav-link">🎯 Accas</a>
+  </div>
+
+  <div class="grid">
+    <div class="stat">
+      <div class="stat-label">All-time Win Rate</div>
+      <div class="stat-value accent">{{ alltime.win_rate }}%</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Tips Today</div>
+      <div class="stat-value">{{ tips_today }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Won Today</div>
+      <div class="stat-value green">{{ won_today }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Lost Today</div>
+      <div class="stat-value">{{ lost_today }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Pending</div>
+      <div class="stat-value">{{ pending_today }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Today WR%</div>
+      <div class="stat-value {% if wr_today >= 60 %}green{% endif %}">{{ wr_today }}%</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Today's Markets</div>
+    {% for market, count in market_counts.items %}
+    <div class="market-row">
+      <span class="market-name">{{ market }}</span>
+      <span class="market-count">{{ count }}</span>
+    </div>
+    {% empty %}
+    <div style="color:#64748b; font-size:13px;">No tips published today yet.</div>
+    {% endfor %}
+  </div>
+
+  <div class="section">
+    <div class="section-title">Grade Results</div>
+    <p style="font-size:13px; color:#64748b; margin-bottom:16px;">
+      Manually trigger result grading for today's fixtures. The scheduler runs this automatically but you can force it here.
+    </p>
+    <button class="btn btn-grade" id="gradeBtn" onclick="runGrade()">
+      ▶ Grade Results Now
+    </button>
+    <div class="output" id="gradeOutput"></div>
+  </div>
+
+  <script>
+    async function runGrade() {
+      const btn = document.getElementById('gradeBtn');
+      const out = document.getElementById('gradeOutput');
+      btn.disabled = true;
+      btn.textContent = '⏳ Grading...';
+      out.style.display = 'none';
+
+      try {
+        const res = await fetch('/admin/grade/');
+        const data = await res.json();
+        out.style.display = 'block';
+        if (data.status === 'ok') {
+          out.textContent = data.output;
+          btn.textContent = '✅ Done — click to grade again';
+        } else {
+          out.textContent = 'Error: ' + (data.error || 'Unknown error');
+          btn.textContent = '❌ Failed';
+        }
+      } catch (e) {
+        out.style.display = 'block';
+        out.textContent = 'Request failed: ' + e.message;
+        btn.textContent = '❌ Failed';
+      }
+      btn.disabled = false;
+    }
+  </script>
+</body>
+</html>

@@ -352,7 +352,7 @@
     <a href="{% url 'winners' %}"      {% if request.resolver_match.url_name == 'winners'      %}class="active" aria-current="page"{% endif %}>Winners</a>
     <a href="{% url 'donate' %}" class="nav-donate">Donate</a>
     {% if user.is_authenticated %}
-    <a href="{% url 'dashboard' %}" style="color:var(--accent); font-weight:700;">⚡</a>
+    <a href="{% url 'logout' %}" style="color:var(--accent); font-weight:700; font-family:var(--mono); font-size:11px;">⚡ Admin</a>
     {% endif %}
   </nav>
 </nav>

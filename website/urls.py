@@ -10,4 +10,5 @@ urlpatterns = [
     path('winners/', views.winners, name='winners'),
     path('review/', views.review, name='review'),
     path('donate/', views.donate, name='donate'),
+    path('admin/grade/', views.admin_grade, name='admin_grade'),
 ]

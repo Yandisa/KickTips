@@ -568,17 +568,32 @@ def dashboard(request):
 
 @login_required
 def admin_grade(request):
-    """Trigger grade_results from the home admin panel."""
+    """
+    Trigger grade_results in a background thread.
+    Returns immediately so the worker doesn't time out.
+    """
+    import threading
     import io
+    import logging
     from django.core.management import call_command
-    from django.http import JsonResponse
-    try:
-        out = io.StringIO()
-        call_command('grade_results', stdout=out)
-        output = out.getvalue()
-        return JsonResponse({'status': 'ok', 'output': output})
-    except Exception as exc:
-        return JsonResponse({'error': str(exc)}, status=500)
+
+    log = logging.getLogger(__name__)
+
+    def _run():
+        try:
+            out = io.StringIO()
+            call_command('grade_results', stdout=out)
+            log.info("grade_results completed: %s", out.getvalue()[:500])
+        except Exception as exc:
+            log.error("grade_results failed: %s", exc)
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+
+    return JsonResponse({
+        'status': 'started',
+        'output': 'Grading started in background. Check results in a few minutes.'
+    })
 
 def accumulators(request):
     """

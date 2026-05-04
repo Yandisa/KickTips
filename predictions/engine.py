@@ -39,8 +39,8 @@ REQUIRE_ODDS       = True    # Goals and 1X2 require bookmaker odds for value ga
 
 # ── Market-specific thresholds ────────────────────────────────────────────────
 MIN_1X2_CONFIDENCE    = 66.0
-MAX_1X2_BOOKIE_DECIMAL = 4.00  # Permissive during testing — gather data on
-                                # which 1X2 odds bands actually work.
+MAX_1X2_BOOKIE_DECIMAL = 1.90  # Last 5 days: <1.50 wins 100%, 1.90+ wins only 20%.
+                                # Cap at 1.90 — keep favourite home wins only.
 MIN_CORNER_CONFIDENCE = 60.0
 MIN_CORNER_DECIMAL    = 1.50
 MIN_CORNER_DATA_PTS   = 7
@@ -661,6 +661,18 @@ def predict_goals(home, away, h2h_results, league, odds=None):
             bookie_dec = None
             if odds and "ou_goals" in odds:
                 bookie_dec = odds["ou_goals"].get(str(line), {}).get(odds_key)
+
+            # O/U Goals high-odds dead zone — last 5 days: 0/2 above 2.20.
+            # All-time: 26.3% in this band. Block.
+            if bookie_dec and bookie_dec > 2.20:
+                continue
+
+            # O/U Goals low-odds Under filter — last 5 days: Under tips at 1.50-1.70
+            # win only 40.6%. Below 1.55 the bookmaker is too confident in Under
+            # and we lose value. Skip very short Under tips.
+            if bookie_dec and side == "Under" and bookie_dec < 1.55:
+                continue
+
             vc = _value_check(model_prob, bookie_dec)
             if not vc["has_value"]:
                 continue
@@ -745,6 +757,11 @@ def predict_btts(home, away, h2h_results, league, odds=None):
         bookie_dec = (odds.get("btts", {}).get(odds_key)) if odds else None
         vc = _value_check(model_prob, bookie_dec)
         if not vc["has_value"]:
+            return _skip("no_value")
+
+        # BTTS dead zone — last 5 days: 0/5 in 1.70-1.90 band, 0/1 in 1.90-2.20.
+        # Below 1.70 wins 100% (6/6). Block 1.70-2.20 entirely.
+        if bookie_dec and 1.70 <= bookie_dec <= 2.20:
             return _skip("no_value")
 
         cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="btts")
@@ -850,6 +867,13 @@ def predict_double_chance(home, away, h2h_results, league, odds=None):
                 "bookie_implied": round(bookie_implied, 4),
             }
             if not vc["has_value"]:
+                return _skip("no_value")
+
+        # DC dead zone — last 5 days: 1.70-1.90 band wins only 28.6% (2/7).
+        # Below 1.60 wins 70%. Above 2.20 small sample.
+        # EXCEPT: Away or Draw is winning 75% so we keep it through the dead zone.
+        if bookie_dec and 1.60 <= bookie_dec <= 2.20:
+            if "Away or Draw" not in tip:
                 return _skip("no_value")
 
         cb   = _build_confidence(model_prob, bookie_dec, vc["edge"], market="dc")
